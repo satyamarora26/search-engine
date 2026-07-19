@@ -238,11 +238,10 @@ class JobService:
 ## Task 1: Project Scaffold And Health Endpoint
 
 **Files:**
-- Create: `requirements.txt`
+- Modify: `requirements.txt`
 - Create: `requirements-dev.txt`
 - Create: `.env.example`
 - Create: `.gitignore`
-- Create: `app/__init__.py`
 - Create: `app/main.py`
 - Create: `app/api/__init__.py`
 - Create: `app/api/v1/__init__.py`
@@ -351,9 +350,9 @@ app = FastAPI(
 app.include_router(api_router)
 ```
 
-- [ ] **Step 5: Add initial dependencies**
+- [ ] **Step 5: Extend backend dependencies**
 
-Create `requirements.txt`:
+Update `requirements.txt` so it contains:
 
 ```text
 fastapi
@@ -868,8 +867,12 @@ git commit -m "feat: add document CRUD API"
 ## Task 4: Analyzer Pipeline
 
 **Files:**
+- Modify: `.gitignore`
+- Create: `app/__init__.py`
 - Create: `app/search/__init__.py`
 - Create: `app/search/analyzer.py`
+- Create: `pytest.ini`
+- Create: `requirements.txt`
 - Create: `tests/unit/search/test_analyzer.py`
 
 **Interfaces:**
@@ -877,6 +880,8 @@ git commit -m "feat: add document CRUD API"
 - Produces: `SimpleAnalyzer.analyze(text: str) -> list[str]`.
 - Produces: `AdvancedAnalyzer.analyze(text: str) -> list[str]`.
 - Produces: simple normalization, stopword removal, and stemming for indexing and query processing.
+- Produces: `pytest.ini` with `pythonpath = .` so `pytest` can import the local `app` package.
+- Produces: `requirements.txt` with `nltk` as the analyzer dependency.
 
 - [ ] **Step 1: Learning checkpoint**
 
@@ -893,6 +898,8 @@ Why analyzers should be configurable instead of hardcoded
 ```
 
 - [ ] **Step 2: Write analyzer tests**
+
+Create `app/__init__.py` and `app/search/__init__.py` as empty package marker files.
 
 Create `tests/unit/search/test_analyzer.py`:
 
@@ -939,6 +946,19 @@ def test_simple_and_advanced_analyzers_can_behave_differently():
 ```
 
 - [ ] **Step 3: Implement analyzer pipeline**
+
+Create `pytest.ini`:
+
+```ini
+[pytest]
+pythonpath = .
+```
+
+Create `requirements.txt`:
+
+```text
+nltk
+```
 
 Create `app/search/analyzer.py`:
 
@@ -1017,7 +1037,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/search tests/unit/search/test_analyzer.py
+git add .gitignore app pytest.ini requirements.txt tests/unit/search/test_analyzer.py docs/superpowers/plans/2026-07-18-search-engine-implementation-plan.md
 git commit -m "feat: add analyzer pipeline"
 ```
 
