@@ -1,1 +1,4 @@
+fastapi
+httpx2
 nltk
+uvicorn
