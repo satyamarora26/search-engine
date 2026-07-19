@@ -16,7 +16,7 @@ The backend will support:
 
 - Document creation, reading, updating, deletion, and bulk ingestion.
 - Wikipedia crawler ingestion through background jobs.
-- Tokenization, normalization, stopword removal, inverted indexing, TF-IDF ranking, and BM25 ranking.
+- Analyzer pipeline with tokenization, normalization, stopword removal, optional stemming, inverted indexing, TF-IDF ranking, and BM25 ranking.
 - Search results with snippets, matched terms, ranking score, and optional scoring explanation.
 - Job tracking for long-running indexing, bulk ingestion, and crawler tasks.
 - Docker Compose based local deployment.
@@ -41,7 +41,7 @@ Python and FastAPI are chosen because the core learning goal is implementing sea
 The system is organized into layers:
 
 1. Search core
-   Pure Python implementation of tokenizer, inverted index, TF-IDF, BM25, query processing, ranking, and explainability. This layer should not depend on FastAPI or the database.
+   Pure Python implementation of analyzers, inverted index, TF-IDF, BM25, query processing, ranking, and explainability. This layer should not depend on FastAPI or the database.
 
 2. Storage layer
    PostgreSQL stores documents, job records, crawl run records, and index version metadata. SQLAlchemy repositories isolate database access from API and search logic.
@@ -98,8 +98,8 @@ POST /api/v1/crawl/wikipedia
 Search:
 
 ```text
-GET /api/v1/search?q=...&ranking=bm25
--> tokenize query
+GET /api/v1/search?q=machine%20learning&ranking=bm25
+-> analyze query into searchable terms
 -> look up candidate documents in inverted index
 -> rank candidates with BM25 or TF-IDF
 -> fetch document metadata from PostgreSQL
@@ -109,8 +109,8 @@ GET /api/v1/search?q=...&ranking=bm25
 Search explanation:
 
 ```text
-GET /api/v1/search/explain?q=...&document_id=...&ranking=bm25
--> tokenize query
+GET /api/v1/search/explain?q=machine%20learning&document_id=42&ranking=bm25
+-> analyze query into searchable terms
 -> compute per-term score contributions
 -> return term frequency, document frequency, IDF, document length, and final score
 ```
@@ -121,13 +121,16 @@ The search core will be built from scratch.
 
 Core components:
 
-- `Tokenizer`: lowercases text, removes punctuation, splits tokens, removes stopwords, and preserves useful alphanumeric terms.
+- `SimpleAnalyzer`: lowercases text, removes punctuation, splits tokens, removes stopwords, and preserves useful alphanumeric terms.
+- `AdvancedAnalyzer`: starts with simple analyzer behavior, then applies stemming so related forms like `running`, `runs`, and `run` can match through a shared root term.
 - `InvertedIndex`: maps each term to postings containing document id, term frequency, and scoring metadata.
 - `TfidfRanker`: computes TF-IDF scores for candidate documents.
 - `Bm25Ranker`: computes BM25 scores with term-frequency saturation and document-length normalization.
 - `SearchEngine`: coordinates query processing, candidate selection, ranking, and explanations.
 
 BM25 is the default ranking algorithm. TF-IDF remains available to compare ranking behavior and demonstrate the evolution from classic vector-space scoring to a stronger practical ranking model.
+
+The analyzer should be configurable. The simple analyzer is the first stable baseline. The advanced analyzer is added after the baseline so the project can compare search quality tradeoffs: stemming can improve recall, but aggressive normalization may reduce precision.
 
 Linear search is not part of the product. It may be mentioned in documentation as the naive baseline, but implementation effort will go directly into the inverted index.
 
@@ -211,7 +214,7 @@ Example search response shape:
       "title": "Machine Learning",
       "url": "https://example.com/machine-learning",
       "score": 4.82,
-      "snippet": "Machine learning is a field of artificial intelligence...",
+      "snippet": "Machine learning is a field of artificial intelligence.",
       "matched_terms": ["machine", "learning"]
     }
   ]
@@ -235,7 +238,8 @@ Crawler jobs should record fetch failures without failing the entire crawl unles
 
 Unit tests:
 
-- Tokenizer behavior.
+- Simple analyzer behavior.
+- Advanced analyzer stemming behavior.
 - Inverted index construction.
 - TF-IDF scoring.
 - BM25 scoring.
@@ -296,6 +300,7 @@ This project improves on it by adding:
 - Job status endpoint.
 - Query result caching with index versioning.
 - Search explanation endpoint.
+- Configurable simple and advanced analyzer pipeline.
 - Unit and integration tests.
 - Benchmark script and evidence-backed README.
 
@@ -303,8 +308,8 @@ This project improves on it by adding:
 
 1. Project scaffold, dependencies, Docker Compose, and health endpoint.
 2. PostgreSQL schema, SQLAlchemy models, repositories, and Alembic migrations.
-3. Search core tokenizer and inverted index with unit tests.
-4. TF-IDF and BM25 rankers with unit tests.
+3. Search core analyzer pipeline and inverted index with unit tests.
+4. TF-IDF and BM25 rankers with analyzer comparison tests.
 5. Document API and synchronous indexing service.
 6. Search API and search explanation API.
 7. Redis cache and index versioning.

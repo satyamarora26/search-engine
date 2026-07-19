@@ -16,6 +16,8 @@
 - PostgreSQL is the source of truth for documents and job metadata.
 - Redis is used for Celery broker/backend, query cache, index version cache, and index snapshots once stable.
 - The active search index starts as an in-memory Python object.
+- The search core uses a configurable analyzer pipeline.
+- The simple analyzer is the baseline; the advanced analyzer adds stemming.
 - BM25 is the default ranking algorithm.
 - TF-IDF remains available for comparison and learning.
 - Every technical task starts with explanation, then tests, then implementation, then verification, then commit.
@@ -78,7 +80,7 @@ The user and agent will build one task at a time. The agent should stop after ea
 │   ├── search/
 │   │   ├── __init__.py
 │   │   ├── types.py
-│   │   ├── tokenizer.py
+│   │   ├── analyzer.py
 │   │   ├── inverted_index.py
 │   │   ├── tfidf.py
 │   │   ├── bm25.py
@@ -150,8 +152,16 @@ class SearchHit:
 Core search interfaces:
 
 ```python
-class Tokenizer:
-    def tokenize(self, text: str) -> list[str]:
+class BaseAnalyzer:
+    def analyze(self, text: str) -> list[str]:
+        raise NotImplementedError
+
+class SimpleAnalyzer(BaseAnalyzer):
+    def analyze(self, text: str) -> list[str]:
+        raise NotImplementedError
+
+class AdvancedAnalyzer(BaseAnalyzer):
+    def analyze(self, text: str) -> list[str]:
         raise NotImplementedError
 
 class InvertedIndex:
@@ -357,6 +367,7 @@ redis
 celery
 aiohttp
 beautifulsoup4
+nltk
 ```
 
 Create `requirements-dev.txt`:
@@ -854,16 +865,18 @@ git commit -m "feat: add document CRUD API"
 
 ---
 
-## Task 4: Tokenizer
+## Task 4: Analyzer Pipeline
 
 **Files:**
 - Create: `app/search/__init__.py`
-- Create: `app/search/tokenizer.py`
-- Create: `tests/unit/search/test_tokenizer.py`
+- Create: `app/search/analyzer.py`
+- Create: `tests/unit/search/test_analyzer.py`
 
 **Interfaces:**
-- Produces: `Tokenizer.tokenize(text: str) -> list[str]`.
-- Produces: stopword removal used by indexing and query processing.
+- Produces: `BaseAnalyzer.analyze(text: str) -> list[str]`.
+- Produces: `SimpleAnalyzer.analyze(text: str) -> list[str]`.
+- Produces: `AdvancedAnalyzer.analyze(text: str) -> list[str]`.
+- Produces: simple normalization, stopword removal, and stemming for indexing and query processing.
 
 - [ ] **Step 1: Learning checkpoint**
 
@@ -874,44 +887,65 @@ What tokenization means
 Why search compares normalized terms instead of raw text
 Why stopwords reduce noise
 What we lose when we remove punctuation and lowercase text
+What stemming does
+Why stemming can improve recall but reduce precision
+Why analyzers should be configurable instead of hardcoded
 ```
 
-- [ ] **Step 2: Write tokenizer tests**
+- [ ] **Step 2: Write analyzer tests**
 
-Create `tests/unit/search/test_tokenizer.py`:
+Create `tests/unit/search/test_analyzer.py`:
 
 ```python
-from app.search.tokenizer import Tokenizer
+from app.search.analyzer import AdvancedAnalyzer, SimpleAnalyzer
 
 
-def test_tokenizer_lowercases_and_removes_punctuation():
-    tokenizer = Tokenizer()
+def test_simple_analyzer_lowercases_and_removes_punctuation():
+    analyzer = SimpleAnalyzer()
 
-    tokens = tokenizer.tokenize("Machine-Learning, Basics!")
+    terms = analyzer.analyze("Machine-Learning, Basics!")
 
-    assert tokens == ["machine", "learning", "basics"]
-
-
-def test_tokenizer_removes_stopwords():
-    tokenizer = Tokenizer(stopwords={"is", "a", "of"})
-
-    tokens = tokenizer.tokenize("Machine learning is a field of AI")
-
-    assert tokens == ["machine", "learning", "field", "ai"]
+    assert terms == ["machine", "learning", "basics"]
 
 
-def test_tokenizer_returns_empty_list_for_blank_text():
-    tokenizer = Tokenizer()
+def test_simple_analyzer_removes_stopwords():
+    analyzer = SimpleAnalyzer(stopwords={"is", "a", "of"})
 
-    assert tokenizer.tokenize("   ") == []
+    terms = analyzer.analyze("Machine learning is a field of AI")
+
+    assert terms == ["machine", "learning", "field", "ai"]
+
+
+def test_simple_analyzer_returns_empty_list_for_blank_text():
+    analyzer = SimpleAnalyzer()
+
+    assert analyzer.analyze("   ") == []
+
+
+def test_advanced_analyzer_stems_related_words():
+    analyzer = AdvancedAnalyzer(stopwords=set())
+
+    terms = analyzer.analyze("running runs runner")
+
+    assert terms == ["run", "run", "runner"]
+
+
+def test_simple_and_advanced_analyzers_can_behave_differently():
+    simple = SimpleAnalyzer(stopwords=set())
+    advanced = AdvancedAnalyzer(stopwords=set())
+
+    assert simple.analyze("running") == ["running"]
+    assert advanced.analyze("running") == ["run"]
 ```
 
-- [ ] **Step 3: Implement tokenizer**
+- [ ] **Step 3: Implement analyzer pipeline**
 
-Create `app/search/tokenizer.py`:
+Create `app/search/analyzer.py`:
 
 ```python
 import re
+
+from nltk.stem import PorterStemmer
 
 DEFAULT_STOPWORDS = {
     "a",
@@ -937,18 +971,33 @@ DEFAULT_STOPWORDS = {
 }
 
 
-class Tokenizer:
+class BaseAnalyzer:
+    def analyze(self, text: str) -> list[str]:
+        raise NotImplementedError
+
+
+class SimpleAnalyzer(BaseAnalyzer):
     def __init__(self, stopwords: set[str] | None = None) -> None:
         self.stopwords = stopwords if stopwords is not None else DEFAULT_STOPWORDS
 
-    def tokenize(self, text: str) -> list[str]:
+    def analyze(self, text: str) -> list[str]:
         if not text or not text.strip():
             return []
 
         normalized = text.lower()
         normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
-        tokens = normalized.split()
-        return [token for token in tokens if token not in self.stopwords]
+        terms = normalized.split()
+        return [term for term in terms if term not in self.stopwords]
+
+
+class AdvancedAnalyzer(SimpleAnalyzer):
+    def __init__(self, stopwords: set[str] | None = None) -> None:
+        super().__init__(stopwords=stopwords)
+        self.stemmer = PorterStemmer()
+
+    def analyze(self, text: str) -> list[str]:
+        terms = super().analyze(text)
+        return [self.stemmer.stem(term) for term in terms]
 ```
 
 - [ ] **Step 4: Run verification**
@@ -956,20 +1005,20 @@ class Tokenizer:
 Run:
 
 ```bash
-pytest tests/unit/search/test_tokenizer.py -v
+pytest tests/unit/search/test_analyzer.py -v
 ```
 
 Expected:
 
 ```text
-3 passed
+5 passed
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/search tests/unit/search/test_tokenizer.py
-git commit -m "feat: add tokenizer"
+git add app/search tests/unit/search/test_analyzer.py
+git commit -m "feat: add analyzer pipeline"
 ```
 
 ---
@@ -982,7 +1031,7 @@ git commit -m "feat: add tokenizer"
 - Create: `tests/unit/search/test_inverted_index.py`
 
 **Interfaces:**
-- Consumes: `Tokenizer`.
+- Consumes: `BaseAnalyzer`.
 - Produces: `IndexedDocument`, `Posting`, and `InvertedIndex`.
 - Produces term postings, document lengths, average document length, and document term frequencies used by TF-IDF and BM25.
 
@@ -1051,7 +1100,7 @@ Create `app/search/inverted_index.py` with:
 
 ```python
 class InvertedIndex:
-    def __init__(self, tokenizer: Tokenizer) -> None:
+    def __init__(self, analyzer: BaseAnalyzer) -> None:
         raise NotImplementedError
 
     def add_document(self, document: IndexedDocument) -> None:
@@ -1276,7 +1325,7 @@ git commit -m "feat: add bm25 ranker"
 - Create: `tests/integration/test_search_api.py`
 
 **Interfaces:**
-- Consumes: `Tokenizer`, `InvertedIndex`, `TfidfRanker`, `Bm25Ranker`.
+- Consumes: `BaseAnalyzer`, `InvertedIndex`, `TfidfRanker`, `Bm25Ranker`.
 - Produces: `/api/v1/search`.
 - Produces: `/api/v1/search/explain`.
 
