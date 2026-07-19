@@ -1,0 +1,40 @@
+{
+  "documents": [
+    {
+      "id": 1,
+      "title": "BM25 Ranking",
+      "content": "BM25 ranking improves simple TF-IDF search by using term frequency saturation and document length normalization. It is a strong default ranking algorithm for a practical search engine.",
+      "url": "https://example.com/search/bm25-ranking"
+    },
+    {
+      "id": 2,
+      "title": "TF-IDF Basics",
+      "content": "TF-IDF scores documents by combining term frequency inside one document with inverse document frequency across the full corpus.",
+      "url": "https://example.com/search/tfidf-basics"
+    },
+    {
+      "id": 3,
+      "title": "Inverted Index",
+      "content": "An inverted index maps each analyzed term to the documents that contain it. This avoids scanning every document for every search query.",
+      "url": "https://example.com/search/inverted-index"
+    },
+    {
+      "id": 4,
+      "title": "PostgreSQL Storage",
+      "content": "PostgreSQL stores source documents, URLs, job metadata, and index version records. The in-memory index is rebuilt from this source of truth.",
+      "url": "https://example.com/storage/postgresql"
+    },
+    {
+      "id": 5,
+      "title": "Wikipedia Crawler",
+      "content": "A Wikipedia crawler can fetch article titles, URLs, and page content, then pass those documents into the same indexing pipeline.",
+      "url": "https://example.com/crawler/wikipedia"
+    },
+    {
+      "id": 6,
+      "title": "Redis Search Cache",
+      "content": "Redis can cache repeated search responses using an index version in the cache key so old results do not survive after the corpus changes.",
+      "url": "https://example.com/cache/redis-search"
+    }
+  ]
+}
