@@ -9,7 +9,7 @@
     {
       "id": 2,
       "title": "TF-IDF Basics",
-      "content": "TF-IDF scores documents by combining term frequency inside one document with inverse document frequency across the full corpus.",
+      "content": "TF-IDF scores documents by combining term frequency inside one document with inverse document frequency across the full corpus. A tfidf search demo compares this ranking style with BM25.",
       "url": "https://example.com/search/tfidf-basics"
     },
     {
