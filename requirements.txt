@@ -1,4 +1,5 @@
 fastapi
 httpx2
 nltk
+psycopg[binary]
 uvicorn
