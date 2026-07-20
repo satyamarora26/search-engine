@@ -1,11 +1,10 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.db.session import get_db_session
-from app.repositories.documents import DocumentRepository
-from app.schemas.search import SearchExplainResponse, SearchIndexStatus, SearchResponse
+from app.schemas.jobs import JobAcceptedResponse
+from app.schemas.search import SearchExplainResponse, SearchResponse
+from app.services.jobs import JobEnqueueError, JobService, get_job_service
 from app.services.search_index import SearchIndexService, get_search_index_service
 
 router = APIRouter(tags=["search"])
@@ -36,13 +35,23 @@ def explain(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
-@router.post("/search/rebuild", response_model=SearchIndexStatus)
+@router.post(
+    "/search/rebuild",
+    response_model=JobAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def rebuild_search_index(
-    session: Session = Depends(get_db_session),
-    search_index: SearchIndexService = Depends(get_search_index_service),
-) -> SearchIndexStatus:
-    documents = DocumentRepository(session).list_all_active()
-    return search_index.rebuild(documents)
+    service: JobService = Depends(get_job_service),
+) -> JobAcceptedResponse:
+    try:
+        task_id = service.enqueue_search_index_rebuild()
+    except JobEnqueueError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return JobAcceptedResponse(
+        task_id=task_id,
+        status="PENDING",
+        status_url=f"/api/v1/jobs/{task_id}",
+    )
 
 
 def _require_non_blank_query(query: str) -> str:
