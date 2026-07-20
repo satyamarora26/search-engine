@@ -49,13 +49,13 @@ FastAPI enqueues the rebuild instead of loading PostgreSQL inside the request:
 
 ```text
 POST /api/v1/search/rebuild
--> 202 Accepted with task_id and status_url
+-> 202 Accepted with job_id and status_url
 -> Redis broker
 -> Celery loads PostgreSQL active documents
 -> Celery validates the BM25/TF-IDF index
 -> Celery writes search:index:snapshot:{version}
 -> Celery updates search:index:active_version
--> GET /api/v1/jobs/{task_id}
+-> GET /api/v1/jobs/{job_id}
 -> GET /api/v1/search activates the snapshot when its version changes
 ```
 
@@ -82,22 +82,21 @@ celery -A app.workers.celery_app.celery_app worker --loglevel=info
 uvicorn app.main:app --reload
 ```
 
-Submit a rebuild and capture its task id:
+Submit a rebuild and capture its durable job id:
 
 ```bash
-SEARCH_TASK_ID=$(curl -s -X POST http://127.0.0.1:8000/api/v1/search/rebuild | python -c 'import json,sys; print(json.load(sys.stdin)["task_id"])')
+SEARCH_JOB_ID=$(curl -s -X POST http://127.0.0.1:8000/api/v1/search/rebuild | python3 -c 'import json,sys; print(json.load(sys.stdin)["job_id"])')
 ```
 
 Inspect the job and then search the active snapshot:
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/jobs/${SEARCH_TASK_ID}"
+curl "http://127.0.0.1:8000/api/v1/jobs/${SEARCH_JOB_ID}"
 curl "http://127.0.0.1:8000/api/v1/search?q=bm25"
 ```
 
-Celery's result backend reports an unknown valid task UUID as `PENDING`. The
-planned PostgreSQL `jobs` table will later distinguish unknown jobs, retain
-history, and store progress counters.
+PostgreSQL is the job-status source of truth. Job history survives Celery result
+expiry and Redis restarts, and an unknown valid job UUID returns HTTP 404.
 
 ## Process Boundary
 
@@ -113,4 +112,4 @@ in-memory engine when it observes a newer version.
 
 Redis has three roles in this flow: broker queue, Celery result backend, and
 versioned search snapshot store. PostgreSQL remains the source of truth for
-documents.
+documents and durable job history.

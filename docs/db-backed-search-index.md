@@ -38,7 +38,7 @@ The rebuild endpoint is asynchronous:
 
 ```text
 POST /api/v1/search/rebuild
--> HTTP 202 with task_id and status_url
+-> HTTP 202 with job_id and status_url
 ```
 
 The API request sends `search.rebuild_index_snapshot` through Redis. Celery loads
@@ -49,8 +49,12 @@ active documents from PostgreSQL, validates indexing, writes
 Check the result with:
 
 ```text
-GET /api/v1/jobs/{task_id}
+GET /api/v1/jobs/{job_id}
 ```
+
+PostgreSQL stores the job lifecycle and progress independently from Celery's
+expiring result backend. Repeated rebuild requests return the same active job,
+and an unknown valid job UUID returns HTTP 404.
 
 Before each search or explanation, FastAPI compares its local index version with
 the Redis active version. A changed version loads the JSON snapshot, builds a
