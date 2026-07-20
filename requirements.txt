@@ -4,5 +4,6 @@ fastapi
 httpx2
 nltk
 psycopg[binary]
+redis
 sqlalchemy
 uvicorn
