@@ -1,5 +1,7 @@
+alembic
 fastapi
 httpx2
 nltk
 psycopg[binary]
+sqlalchemy
 uvicorn
