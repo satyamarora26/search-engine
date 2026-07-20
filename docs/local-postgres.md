@@ -40,6 +40,7 @@ Run the real PostgreSQL integration tests:
 
 ```bash
 RUN_POSTGRES_INTEGRATION=1 pytest tests/integration/test_document_repository_postgres.py -v
+RUN_POSTGRES_INTEGRATION=1 pytest tests/integration/test_document_api_postgres.py -v
 ```
 
 Check container health:
