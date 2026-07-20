@@ -11,7 +11,10 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
         backend=worker_settings.celery_result_backend,
     )
     celery_app.conf.update(
-        imports=("app.workers.tasks",),
+        imports=(
+            "app.workers.tasks",
+            "app.workers.search_tasks",
+        ),
         task_serializer="json",
         result_serializer="json",
         accept_content=["json"],

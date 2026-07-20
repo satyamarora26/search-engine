@@ -52,3 +52,9 @@ DocumentService -> queue job -> Celery worker -> SearchIndexService or persisten
 ```
 
 We get immediate search updates now without adding Redis/Celery complexity too early. Later, Celery can reuse the same indexing concepts for crawler ingestion.
+
+## Celery Process Boundary
+
+Celery runs in a separate worker process. That means a Celery task cannot directly mutate the FastAPI process's in-memory `SearchIndexService`.
+
+The worker task `search.rebuild_index_snapshot` builds a worker-local index snapshot and returns stats. It is useful for proving that the worker can load active PostgreSQL documents and run indexing logic, but the API still uses `/api/v1/search/rebuild` for the API process's live in-memory index.

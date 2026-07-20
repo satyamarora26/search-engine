@@ -62,6 +62,7 @@ def test_create_celery_app_uses_settings_and_json_serialization():
     assert celery_app.conf.result_serializer == "json"
     assert celery_app.conf.accept_content == ["json"]
     assert "app.workers.tasks" in celery_app.conf.imports
+    assert "app.workers.search_tasks" in celery_app.conf.imports
 
 
 def test_ping_task_returns_health_payload():
