@@ -51,6 +51,14 @@ class DocumentRepository:
         )
         return list(self.session.scalars(statement).all())
 
+    def list_all_active(self) -> list[Document]:
+        statement = (
+            select(Document)
+            .where(Document.status == ACTIVE_STATUS)
+            .order_by(Document.id.asc())
+        )
+        return list(self.session.scalars(statement).all())
+
     def update_active(
         self,
         document_id: int,

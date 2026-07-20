@@ -1,10 +1,15 @@
 from fastapi.testclient import TestClient
 
+from app.api.v1.search import get_search_index_service
 from app.main import create_app
+from app.services.search import SearchService
 
 
 def build_client() -> TestClient:
-    return TestClient(create_app())
+    app = create_app()
+    search_index = SearchService.from_json_corpus("data/sample_corpus.json")
+    app.dependency_overrides[get_search_index_service] = lambda: search_index
+    return TestClient(app)
 
 
 def test_search_api_defaults_to_bm25():

@@ -13,14 +13,16 @@ from app.services.documents import (
     DocumentService,
     DuplicateDocumentURLError,
 )
+from app.services.search_index import SearchIndexService, get_search_index_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 def get_document_service(
     session: Session = Depends(get_db_session),
+    search_index: SearchIndexService = Depends(get_search_index_service),
 ) -> DocumentService:
-    return DocumentService(session)
+    return DocumentService(session, search_index)
 
 
 @router.post(

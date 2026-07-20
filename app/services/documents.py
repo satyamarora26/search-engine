@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.document import Document
 from app.repositories.documents import DocumentRepository
+from app.services.search_index import SearchIndexService
 
 T = TypeVar("T")
 
@@ -19,9 +20,14 @@ class DuplicateDocumentURLError(Exception):
 
 
 class DocumentService:
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        search_index: SearchIndexService | None = None,
+    ) -> None:
         self.session = session
         self.repository = DocumentRepository(session)
+        self.search_index = search_index
 
     def create_document(
         self,
@@ -30,9 +36,12 @@ class DocumentService:
         content: str,
         url: str | None = None,
     ) -> Document:
-        return self._write(
+        document = self._write(
             lambda: self.repository.create(title=title, content=content, url=url)
         )
+        if self.search_index is not None:
+            self.search_index.index_document(document)
+        return document
 
     def list_documents(self, *, limit: int, offset: int) -> list[Document]:
         return self.repository.list_active(limit=limit, offset=offset)
@@ -57,7 +66,7 @@ class DocumentService:
         content = changes.get("content", current_document.content)
         url = changes.get("url", current_document.url)
 
-        return self._write(
+        document = self._write(
             lambda: self._update_existing(
                 document_id,
                 title=title,
@@ -65,6 +74,9 @@ class DocumentService:
                 url=url,
             )
         )
+        if self.search_index is not None:
+            self.search_index.index_document(document)
+        return document
 
     def delete_document(self, document_id: int) -> None:
         def operation() -> None:
@@ -74,6 +86,8 @@ class DocumentService:
             return None
 
         self._write(operation)
+        if self.search_index is not None:
+            self.search_index.remove_document(document_id)
 
     def _update_existing(
         self,

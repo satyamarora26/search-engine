@@ -32,3 +32,8 @@ class SearchExplainResponse(BaseModel):
     document_id: int
     final_score: float
     terms: list[SearchExplainTerm]
+
+
+class SearchIndexStatus(BaseModel):
+    index_version: str
+    document_count: int

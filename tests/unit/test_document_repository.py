@@ -107,6 +107,24 @@ def test_list_active_applies_status_filter_limit_offset_and_stable_order():
     assert "OFFSET 50" in sql
 
 
+def test_list_all_active_applies_status_filter_and_stable_order_without_limit():
+    expected_documents = [
+        Document(id=1, title="First", content="One"),
+        Document(id=2, title="Second", content="Two"),
+    ]
+    session = FakeSession(FakeScalarResult(all_=expected_documents))
+    repository = DocumentRepository(session)
+
+    documents = repository.list_all_active()
+
+    assert documents == expected_documents
+    sql = compile_sql(session.statements[0])
+    assert "documents.status = 'active'" in sql
+    assert "ORDER BY documents.id ASC" in sql
+    assert "LIMIT" not in sql
+    assert "OFFSET" not in sql
+
+
 def test_list_active_rejects_invalid_pagination():
     repository = DocumentRepository(FakeSession())
 

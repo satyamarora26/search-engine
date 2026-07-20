@@ -6,9 +6,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from app.api.v1.search import get_search_index_service
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.main import create_app
+from app.services.search_index import SearchIndexService
 
 
 pytestmark = [
@@ -39,11 +41,13 @@ def db_session():
 @pytest.fixture
 def client(db_session):
     app = create_app()
+    search_index = SearchIndexService()
 
     def override_get_db_session():
         yield db_session
 
     app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_search_index_service] = lambda: search_index
     return TestClient(app)
 
 
