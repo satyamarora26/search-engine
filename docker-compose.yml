@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-search_engine}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-search_engine}
+      POSTGRES_DB: ${POSTGRES_DB:-search_engine}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-search_engine} -d ${POSTGRES_DB:-search_engine}
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
