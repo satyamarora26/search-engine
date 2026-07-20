@@ -34,3 +34,6 @@ def test_celery_worker_documentation_lists_run_commands():
     assert "docker compose up -d redis" in docs
     assert "celery -A app.workers.celery_app.celery_app worker --loglevel=info" in docs
     assert "celery -A app.workers.celery_app.celery_app call workers.ping" in docs
+    assert "/api/v1/search/rebuild" in docs
+    assert "/api/v1/jobs/" in docs
+    assert "search:index:active_version" in docs

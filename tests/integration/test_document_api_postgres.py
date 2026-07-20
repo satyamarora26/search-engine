@@ -6,11 +6,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.api.v1.search import get_search_index_service
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.main import create_app
-from app.services.search_index import SearchIndexService
+from app.services.search_index import SearchIndexService, get_search_index_service
 
 
 pytestmark = [

@@ -1,14 +1,16 @@
 from fastapi.testclient import TestClient
 
-from app.api.v1.search import get_search_index_service
 from app.main import create_app
 from app.services.search import SearchService
+from app.services.search_index_sync import get_synchronized_search_index_service
 
 
 def build_client() -> TestClient:
     app = create_app()
     search_index = SearchService.from_json_corpus("data/sample_corpus.json")
-    app.dependency_overrides[get_search_index_service] = lambda: search_index
+    app.dependency_overrides[
+        get_synchronized_search_index_service
+    ] = lambda: search_index
     return TestClient(app)
 
 
@@ -74,3 +76,23 @@ def test_search_explain_api_returns_term_contributions():
     assert payload["document_id"] == 1
     assert payload["final_score"] > 0
     assert payload["terms"]
+
+
+def test_search_route_uses_synchronized_index_dependency():
+    app = create_app()
+    search_index = SearchService.from_json_corpus("data/sample_corpus.json")
+    calls = []
+
+    def synchronized_index():
+        calls.append("synchronized")
+        return search_index
+
+    app.dependency_overrides[
+        get_synchronized_search_index_service
+    ] = synchronized_index
+    client = TestClient(app)
+
+    response = client.get("/api/v1/search", params={"q": "bm25"})
+
+    assert response.status_code == 200
+    assert calls == ["synchronized"]

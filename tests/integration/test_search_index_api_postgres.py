@@ -6,12 +6,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.api.v1.search import get_search_index_service
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.main import create_app
-from app.repositories.documents import DocumentRepository
-from app.services.search_index import SearchIndexService
+from app.services.search_index import SearchIndexService, get_search_index_service
+from app.services.search_index_sync import get_synchronized_search_index_service
 
 
 pytestmark = [
@@ -49,6 +48,9 @@ def client(db_session):
 
     app.dependency_overrides[get_db_session] = override_get_db_session
     app.dependency_overrides[get_search_index_service] = lambda: search_index
+    app.dependency_overrides[
+        get_synchronized_search_index_service
+    ] = lambda: search_index
     return TestClient(app)
 
 
@@ -94,28 +96,3 @@ def test_document_writes_update_search_index_immediately(client):
         .json()["total_results"]
         == 0
     )
-
-
-def test_search_rebuild_loads_active_documents_from_postgres(client, db_session):
-    marker = f"rebuildindex{uuid4().hex}"
-    repository = DocumentRepository(db_session)
-    document = repository.create(
-        title="Rebuild Index Document",
-        content=f"This database-only document contains {marker}.",
-        url=f"https://example.com/{uuid4()}",
-    )
-
-    before_rebuild = client.get("/api/v1/search", params={"q": marker})
-
-    assert before_rebuild.status_code == 200
-    assert before_rebuild.json()["total_results"] == 0
-
-    rebuild_response = client.post("/api/v1/search/rebuild")
-
-    assert rebuild_response.status_code == 200
-    assert rebuild_response.json()["document_count"] >= 1
-
-    after_rebuild = client.get("/api/v1/search", params={"q": marker})
-
-    assert after_rebuild.status_code == 200
-    assert after_rebuild.json()["results"][0]["document_id"] == document.id

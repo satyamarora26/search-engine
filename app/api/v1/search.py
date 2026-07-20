@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.schemas.jobs import JobAcceptedResponse
 from app.schemas.search import SearchExplainResponse, SearchResponse
 from app.services.jobs import JobEnqueueError, JobService, get_job_service
-from app.services.search_index import SearchIndexService, get_search_index_service
+from app.services.search_index import SearchIndexService
+from app.services.search_index_sync import get_synchronized_search_index_service
 
 router = APIRouter(tags=["search"])
 
@@ -15,7 +16,9 @@ def search(
     q: str = Query(..., alias="q"),
     ranking: Literal["bm25", "tfidf"] = "bm25",
     limit: int = Query(10, ge=1, le=50),
-    search_index: SearchIndexService = Depends(get_search_index_service),
+    search_index: SearchIndexService = Depends(
+        get_synchronized_search_index_service
+    ),
 ) -> SearchResponse:
     query = _require_non_blank_query(q)
     return search_index.search(query, ranking=ranking, limit=limit)
@@ -26,7 +29,9 @@ def explain(
     q: str = Query(..., alias="q"),
     document_id: int = Query(..., ge=1),
     ranking: Literal["bm25"] = "bm25",
-    search_index: SearchIndexService = Depends(get_search_index_service),
+    search_index: SearchIndexService = Depends(
+        get_synchronized_search_index_service
+    ),
 ) -> SearchExplainResponse:
     query = _require_non_blank_query(q)
     try:

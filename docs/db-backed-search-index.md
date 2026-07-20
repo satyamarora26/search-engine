@@ -1,11 +1,14 @@
 # DB-Backed Search Index
 
-Search now uses a mutable in-memory index that can be synchronized from PostgreSQL.
+Search uses a mutable in-memory index synchronized through a versioned Redis
+document snapshot. PostgreSQL remains the document source of truth.
 
 ```text
 PostgreSQL active documents
-  -> SearchIndexService
-  -> SearchEngine
+  -> Celery rebuild task
+  -> Redis versioned snapshot
+  -> FastAPI SearchIndexSynchronizer
+  -> process-local SearchIndexService
   -> /api/v1/search
 ```
 
@@ -29,32 +32,50 @@ DELETE /api/v1/documents/{id}
   -> remove document from SearchIndexService
 ```
 
-## Rebuild Endpoint
+## Background Rebuild Endpoint
 
-The API also has:
+The rebuild endpoint is asynchronous:
 
 ```text
 POST /api/v1/search/rebuild
+-> HTTP 202 with task_id and status_url
 ```
 
-This loads all active documents from PostgreSQL and rebuilds the in-memory index. That matters after a server restart, because the database persists but memory starts empty.
+The API request sends `search.rebuild_index_snapshot` through Redis. Celery loads
+active documents from PostgreSQL, validates indexing, writes
+`search:index:snapshot:{version}`, and then updates
+`search:index:active_version`.
 
-## Why This Comes Before Celery
-
-This is the clean stepping stone before background indexing:
+Check the result with:
 
 ```text
-Now:
-DocumentService -> SearchIndexService
-
-Later:
-DocumentService -> queue job -> Celery worker -> SearchIndexService or persistent index
+GET /api/v1/jobs/{task_id}
 ```
 
-We get immediate search updates now without adding Redis/Celery complexity too early. Later, Celery can reuse the same indexing concepts for crawler ingestion.
+Before each search or explanation, FastAPI compares its local index version with
+the Redis active version. A changed version loads the JSON snapshot, builds a
+replacement engine, and swaps the engine, document map, and version together.
+
+## Consistency Model
+
+```text
+Document write in one API process
+-> immediate local index update
+
+Background full rebuild
+-> all API processes observe the new Redis version
+-> each process activates the same snapshot on its next search
+```
+
+Automatic per-document background indexing is a later slice. Until then, a full
+background rebuild makes database-only changes visible across API processes.
 
 ## Celery Process Boundary
 
-Celery runs in a separate worker process. That means a Celery task cannot directly mutate the FastAPI process's in-memory `SearchIndexService`.
+Celery cannot directly mutate FastAPI memory. Redis solves the boundary without
+serializing Python objects or private inverted-index structures: the worker
+publishes validated JSON documents and a version pointer, while FastAPI rebuilds
+the custom BM25/TF-IDF engine locally.
 
-The worker task `search.rebuild_index_snapshot` builds a worker-local index snapshot and returns stats. It is useful for proving that the worker can load active PostgreSQL documents and run indexing logic, but the API still uses `/api/v1/search/rebuild` for the API process's live in-memory index.
+If Redis is unavailable or a published snapshot is invalid, synchronization logs
+the problem and preserves the last valid local index.
