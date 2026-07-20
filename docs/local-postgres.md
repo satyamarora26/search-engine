@@ -36,6 +36,12 @@ postgresql+psycopg://search_engine:search_engine@localhost:5432/search_engine
 
 ## Daily Commands
 
+Run the real PostgreSQL integration tests:
+
+```bash
+RUN_POSTGRES_INTEGRATION=1 pytest tests/integration/test_document_repository_postgres.py -v
+```
+
 Check container health:
 
 ```bash
