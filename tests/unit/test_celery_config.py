@@ -65,6 +65,12 @@ def test_create_celery_app_uses_settings_and_json_serialization():
     assert "app.workers.search_tasks" in celery_app.conf.imports
 
 
+def test_create_celery_app_tracks_started_tasks():
+    celery_app = create_celery_app()
+
+    assert celery_app.conf.task_track_started is True
+
+
 def test_ping_task_returns_health_payload():
     assert ping.name == "workers.ping"
     assert ping.run() == {"status": "ok"}
