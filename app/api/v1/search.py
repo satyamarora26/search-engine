@@ -2,9 +2,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.api.dependencies import get_job_service
 from app.schemas.jobs import JobAcceptedResponse
 from app.schemas.search import SearchExplainResponse, SearchResponse
-from app.services.jobs import JobEnqueueError, JobService, get_job_service
+from app.services.jobs import (
+    JobEnqueueError,
+    JobService,
+    JobStorageError,
+)
 from app.services.search_index import SearchIndexService
 from app.services.search_index_sync import get_synchronized_search_index_service
 
@@ -49,13 +54,13 @@ def rebuild_search_index(
     service: JobService = Depends(get_job_service),
 ) -> JobAcceptedResponse:
     try:
-        task_id = service.enqueue_search_index_rebuild()
-    except JobEnqueueError as error:
+        job = service.enqueue_search_index_rebuild()
+    except (JobEnqueueError, JobStorageError) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     return JobAcceptedResponse(
-        task_id=task_id,
-        status="PENDING",
-        status_url=f"/api/v1/jobs/{task_id}",
+        job_id=job.id,
+        status=job.status,
+        status_url=f"/api/v1/jobs/{job.id}",
     )
 
 

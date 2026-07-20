@@ -1,16 +1,23 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.api.dependencies import get_job_service
 from app.schemas.jobs import JobStatusResponse
-from app.services.jobs import JobService, get_job_service
+from app.services.jobs import JobNotFoundError, JobService, JobStorageError
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-@router.get("/{task_id}", response_model=JobStatusResponse)
+@router.get("/{job_id}", response_model=JobStatusResponse)
 def get_job_status(
-    task_id: UUID,
+    job_id: UUID,
     service: JobService = Depends(get_job_service),
 ) -> JobStatusResponse:
-    return service.get_job_status(str(task_id))
+    try:
+        job = service.get_job(job_id)
+    except JobNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except JobStorageError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return JobStatusResponse.from_job(job)

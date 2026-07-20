@@ -1,68 +1,114 @@
 from collections.abc import Callable
+import logging
 from typing import Any, Protocol
+from uuid import UUID, uuid4
 
-from celery import states
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
-from app.schemas.jobs import JobStatusResponse
-from app.workers.celery_app import celery_app
-from app.workers.search_tasks import rebuild_search_index_snapshot_task
+from app.models.job import Job, SEARCH_INDEX_REBUILD_JOB
+from app.repositories.jobs import JobRepository
+
+logger = logging.getLogger(__name__)
+REBUILD_PROGRESS_TOTAL = 4
 
 
 class JobEnqueueError(Exception):
     pass
 
 
-class QueuedTask(Protocol):
-    id: str
+class JobNotFoundError(Exception):
+    pass
+
+
+class JobStorageError(Exception):
+    pass
 
 
 class TaskSender(Protocol):
-    def delay(self) -> QueuedTask: ...
-
-
-class TaskResult(Protocol):
-    state: str
-    result: Any
-
-    def ready(self) -> bool: ...
+    def apply_async(
+        self,
+        *,
+        args: list[str],
+        task_id: str,
+    ) -> Any: ...
 
 
 class JobService:
     def __init__(
         self,
+        session: Session,
         rebuild_task: TaskSender,
-        result_factory: Callable[[str], TaskResult],
+        *,
+        job_id_factory: Callable[[], UUID] = uuid4,
+        repository: JobRepository | None = None,
     ) -> None:
+        self.session = session
         self.rebuild_task = rebuild_task
-        self.result_factory = result_factory
+        self.job_id_factory = job_id_factory
+        self.repository = repository or JobRepository(session)
 
-    def enqueue_search_index_rebuild(self) -> str:
+    def enqueue_search_index_rebuild(self) -> Job:
+        active_job = self._get_active_rebuild()
+        if active_job is not None:
+            return active_job
+
+        job_id = self.job_id_factory()
         try:
-            return str(self.rebuild_task.delay().id)
+            job = self.repository.create_pending(
+                job_id,
+                job_type=SEARCH_INDEX_REBUILD_JOB,
+                progress_total=REBUILD_PROGRESS_TOTAL,
+                progress_message="Waiting for worker",
+            )
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            winning_job = self._get_active_rebuild()
+            if winning_job is None:
+                raise JobStorageError("Job storage unavailable.")
+            return winning_job
+        except SQLAlchemyError as error:
+            self.session.rollback()
+            raise JobStorageError("Job storage unavailable.") from error
+
+        try:
+            self.rebuild_task.apply_async(
+                args=[str(job_id)],
+                task_id=str(job_id),
+            )
         except Exception as error:
+            self._record_enqueue_failure(job_id)
             raise JobEnqueueError("Could not enqueue background job.") from error
+        return job
 
-    def get_job_status(self, task_id: str) -> JobStatusResponse:
-        task = self.result_factory(task_id)
-        task_state = str(task.state)
-        is_success = task_state == states.SUCCESS
-        return JobStatusResponse(
-            task_id=task_id,
-            status=task_state,
-            ready=task.ready(),
-            successful=is_success,
-            result=(
-                task.result
-                if is_success and isinstance(task.result, dict)
-                else None
-            ),
-            error=(
-                "Background job failed."
-                if task_state == states.FAILURE
-                else None
-            ),
-        )
+    def get_job(self, job_id: UUID) -> Job:
+        try:
+            job = self.repository.get(job_id)
+        except SQLAlchemyError as error:
+            self.session.rollback()
+            raise JobStorageError("Job storage unavailable.") from error
+        if job is None:
+            raise JobNotFoundError(f"Job {job_id} was not found.")
+        return job
 
+    def _get_active_rebuild(self) -> Job | None:
+        try:
+            return self.repository.get_active(SEARCH_INDEX_REBUILD_JOB)
+        except SQLAlchemyError as error:
+            self.session.rollback()
+            raise JobStorageError("Job storage unavailable.") from error
 
-def get_job_service() -> JobService:
-    return JobService(rebuild_search_index_snapshot_task, celery_app.AsyncResult)
+    def _record_enqueue_failure(self, job_id: UUID) -> None:
+        try:
+            self.repository.mark_failure(
+                job_id,
+                error="Could not enqueue background job.",
+            )
+            self.session.commit()
+        except SQLAlchemyError:
+            self.session.rollback()
+            logger.exception(
+                "Could not persist enqueue failure for job %s.",
+                job_id,
+            )
