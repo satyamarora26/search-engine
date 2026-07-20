@@ -30,6 +30,18 @@ def test_rebuild_replaces_the_current_index():
     assert service.search("fresh database").results[0].document_id == 2
 
 
+def test_rebuild_can_atomically_activate_a_new_index_version():
+    service = SearchIndexService(index_version="redis-old")
+
+    status = service.rebuild(
+        [IndexedDocument(id=8, title="Redis", content="shared snapshot")],
+        index_version="redis-new",
+    )
+
+    assert status.index_version == "redis-new"
+    assert service.search("shared snapshot").index_version == "redis-new"
+
+
 def test_index_document_updates_existing_document_terms():
     service = SearchIndexService()
     service.index_document(

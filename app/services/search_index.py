@@ -38,7 +38,12 @@ class SearchIndexService:
     ) -> "SearchIndexService":
         return cls(load_documents_from_json(path), index_version=index_version)
 
-    def rebuild(self, documents: Iterable[Any]) -> SearchIndexStatus:
+    def rebuild(
+        self,
+        documents: Iterable[Any],
+        *,
+        index_version: str | None = None,
+    ) -> SearchIndexStatus:
         indexed_documents = [_to_indexed_document(document) for document in documents]
         engine = SearchEngine()
         for document in indexed_documents:
@@ -50,6 +55,8 @@ class SearchIndexService:
                 document.id: document
                 for document in indexed_documents
             }
+            if index_version is not None:
+                self.index_version = index_version
             return self.status()
 
     def index_document(self, document: Any) -> SearchIndexStatus:
