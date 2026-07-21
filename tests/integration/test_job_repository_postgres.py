@@ -15,6 +15,7 @@ from app.models.job import (
     SEARCH_INDEX_RESOURCE,
     STARTED_STATUS,
     SUCCESS_STATUS,
+    WIKIPEDIA_CRAWL_JOB,
     Job,
 )
 from app.repositories.jobs import JobRepository
@@ -72,6 +73,69 @@ def test_partial_unique_index_allows_only_one_active_search_resource_job(
             repository,
             job_type=BULK_DOCUMENT_INGESTION_JOB,
         )
+
+
+@pytest.mark.parametrize(
+    "second_type",
+    [BULK_DOCUMENT_INGESTION_JOB, SEARCH_INDEX_REBUILD_JOB],
+)
+def test_active_crawler_blocks_other_search_resource_jobs(
+    db_session,
+    second_type,
+):
+    repository = JobRepository(db_session)
+    create_pending(repository, job_type=WIKIPEDIA_CRAWL_JOB)
+
+    with pytest.raises(IntegrityError):
+        create_pending(repository, job_type=second_type)
+
+
+@pytest.mark.parametrize(
+    "first_type",
+    [BULK_DOCUMENT_INGESTION_JOB, SEARCH_INDEX_REBUILD_JOB],
+)
+def test_crawler_cannot_start_while_search_resource_is_active(
+    db_session,
+    first_type,
+):
+    repository = JobRepository(db_session)
+    create_pending(repository, job_type=first_type)
+
+    with pytest.raises(IntegrityError):
+        create_pending(repository, job_type=WIKIPEDIA_CRAWL_JOB)
+
+
+@pytest.mark.parametrize("terminal_status", [SUCCESS_STATUS, FAILURE_STATUS])
+def test_terminal_crawler_releases_search_resource_slot(
+    db_session,
+    terminal_status,
+):
+    repository = JobRepository(db_session)
+    crawler = create_pending(repository, job_type=WIKIPEDIA_CRAWL_JOB)
+    repository.claim(
+        crawler.id,
+        progress_current=0,
+        progress_total=None,
+        progress_message="Discovering Wikipedia articles",
+    )
+    if terminal_status == SUCCESS_STATUS:
+        repository.mark_success(
+            crawler.id,
+            result={"discovered_count": 1},
+            progress_total=2,
+            progress_message="Wikipedia crawl completed",
+        )
+    else:
+        repository.mark_failure(
+            crawler.id,
+            error="Wikipedia crawl failed.",
+        )
+
+    next_job = create_pending(
+        repository,
+        job_type=BULK_DOCUMENT_INGESTION_JOB,
+    )
+    assert next_job.id != crawler.id
 
 
 def test_terminal_job_allows_next_rebuild_and_cannot_be_overwritten(db_session):

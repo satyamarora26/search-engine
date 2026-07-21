@@ -2194,7 +2194,7 @@ git push origin main
 - Verifies: migration constraints, discovery checkpoints, atomic fetch staging, guarded resume, and shared-resource exclusion.
 - Consumes: migrated PostgreSQL at revision `20260721_0005`.
 
-- [ ] **Step 1: Write live schema and constraint tests**
+- [x] **Step 1: Write live schema and constraint tests**
 
 Create `tests/integration/test_wikipedia_crawl_postgres.py` with the repository's
 existing `RUN_POSTGRES_INTEGRATION=1` marker and savepoint fixture. Add helpers
@@ -2226,7 +2226,7 @@ same Wikipedia page id. Commit in each thread, collect outcomes through a
 thread-safe queue, and assert exactly one commit succeeds and exactly one raises
 `IntegrityError` in each race. Delete the committed race fixture in `finally`.
 
-- [ ] **Step 2: Add transactional checkpoint and staging tests**
+- [x] **Step 2: Add transactional checkpoint and staging tests**
 
 Use the real `WikipediaCrawlStore` to verify:
 
@@ -2243,14 +2243,14 @@ Use the real `WikipediaCrawlStore` to verify:
 - `counts()` satisfies all design equations for imported, skipped, ingestion
   failed, and fetch failed siblings.
 
-- [ ] **Step 3: Extend shared-resource conflict coverage**
+- [x] **Step 3: Extend shared-resource conflict coverage**
 
 In `tests/integration/test_job_repository_postgres.py`, create an active crawler
 job with `resource_key=SEARCH_INDEX_RESOURCE`, then assert a concurrent active
 bulk or rebuild job cannot flush. Repeat with crawler as the second job. Terminal
 crawler jobs must release the partial-unique-index slot.
 
-- [ ] **Step 4: Run migration and PostgreSQL tests**
+- [x] **Step 4: Run migration and PostgreSQL tests**
 
 ```bash
 alembic upgrade head
@@ -2260,10 +2260,14 @@ RUN_POSTGRES_INTEGRATION=1 /opt/anaconda3/bin/python3 -m pytest tests/integratio
 Expected: all selected live PostgreSQL tests pass at revision
 `20260721_0005 (head)`.
 
-- [ ] **Step 5: Commit and push**
+The live run also verified that frontier continuation uses
+`JSON(none_as_null=True)`: Python `None` must become SQL `NULL`, not JSON
+`null`, for the completed-frontier outcome constraint.
+
+- [x] **Step 5: Commit and push**
 
 ```bash
-git add tests/integration/test_wikipedia_crawl_postgres.py tests/integration/test_job_repository_postgres.py
+git add tests/integration/test_wikipedia_crawl_postgres.py tests/integration/test_job_repository_postgres.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "test: verify Wikipedia crawl persistence"
 git push origin main
 ```
