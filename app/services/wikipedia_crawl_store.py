@@ -1,16 +1,19 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import UUID
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.wikipedia_crawl import (
     COMPLETED_FRONTIER_STATUS,
+    PENDING_FETCH_STATUS,
     PENDING_FRONTIER_STATUS,
 )
 from app.repositories.ingestion_items import IngestionItemRepository
 from app.repositories.wikipedia_crawls import WikipediaCrawlRepository
 from app.services.wikipedia_types import (
     CrawlCounts,
+    CrawlPageSnapshot,
     CrawlRunSnapshot,
     FrontierSnapshot,
     WikipediaCategoryBatch,
@@ -75,6 +78,102 @@ class WikipediaCrawlStore:
             if repository.get_run(job_id) is None:
                 raise WikipediaCrawlStateError("crawl_run_not_found")
             return repository.get_next_pending_frontier(job_id)
+        finally:
+            session.close()
+
+    def list_pending_pages(
+        self,
+        job_id: UUID,
+        *,
+        limit: int = 20,
+    ) -> list[CrawlPageSnapshot]:
+        session = self.session_factory()
+        try:
+            repository = self.repository_factory(session)
+            if repository.get_run(job_id) is None:
+                raise WikipediaCrawlStateError("crawl_run_not_found")
+            return repository.list_pending_pages(job_id, limit=limit)
+        finally:
+            session.close()
+
+    def stage_fetched_page(
+        self,
+        page_id: int,
+        *,
+        attempts: int,
+        payload: dict[str, str],
+    ) -> None:
+        session = self.session_factory()
+        try:
+            repository = self.repository_factory(session)
+            page = repository.get_page_for_update(page_id)
+            if page is None:
+                raise WikipediaCrawlStateError("crawl_page_not_found")
+            if page.fetch_status != PENDING_FETCH_STATUS:
+                session.commit()
+                return
+
+            ingestion_repository = self.ingestion_repository_factory(session)
+            ingestion_item = ingestion_repository.stage_at_position(
+                page.job_id,
+                page.position,
+                payload,
+            )
+            updated = repository.mark_page_fetched(
+                page_id,
+                attempts=attempts,
+                ingestion_item_id=ingestion_item.id,
+                fetched_at=datetime.now(timezone.utc),
+            )
+            if updated is None:
+                raise WikipediaCrawlStateError("crawl_state_conflict")
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def fail_page(
+        self,
+        page_id: int,
+        *,
+        attempts: int,
+        error: str,
+    ) -> None:
+        session = self.session_factory()
+        try:
+            repository = self.repository_factory(session)
+            page = repository.get_page_for_update(page_id)
+            if page is None:
+                raise WikipediaCrawlStateError("crawl_page_not_found")
+            if page.fetch_status != PENDING_FETCH_STATUS:
+                session.commit()
+                return
+
+            safe_error = " ".join(str(error).split())[:300]
+            updated = repository.mark_page_failed(
+                page_id,
+                attempts=attempts,
+                error=safe_error,
+            )
+            if updated is None:
+                raise WikipediaCrawlStateError("crawl_state_conflict")
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def terminal_count(self, job_id: UUID) -> int:
+        session = self.session_factory()
+        try:
+            repository = self.repository_factory(session)
+            if repository.get_run(job_id) is None:
+                raise WikipediaCrawlStateError("crawl_run_not_found")
+            counts = repository.counts(job_id)
+            return counts.fetched + counts.fetch_failed
         finally:
             session.close()
 

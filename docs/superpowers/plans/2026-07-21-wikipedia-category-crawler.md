@@ -1721,7 +1721,7 @@ git push origin main
 - Produces: `WikipediaFetchRunner.run(job_id, progress_callback) -> None`.
 - Consumes: pending page snapshots, Task 6 extractor, Task 7 client, and explicit-position ingestion staging.
 
-- [ ] **Step 1: Write failing fetch-phase tests**
+- [x] **Step 1: Write failing fetch-phase tests**
 
 Create `tests/unit/test_wikipedia_fetching.py` with async fakes. Cover:
 
@@ -1778,7 +1778,7 @@ Add tests proving:
 
 Run every async fake scenario through an inner coroutine and `asyncio.run()`.
 
-- [ ] **Step 2: Run tests and verify missing fetching behavior**
+- [x] **Step 2: Run tests and verify missing fetching behavior**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_fetching.py -q
@@ -1786,7 +1786,7 @@ Run every async fake scenario through an inner coroutine and `asyncio.run()`.
 
 Expected: collection fails for missing `wikipedia_fetching`.
 
-- [ ] **Step 3: Extend the crawl store with atomic page transitions**
+- [x] **Step 3: Extend the crawl store with atomic page transitions**
 
 Add these methods to `WikipediaCrawlStore`:
 
@@ -1825,7 +1825,7 @@ Both methods return without changing an already terminal row, commit success,
 roll back errors, sanitize error strings to at most 300 characters, and close
 their sessions.
 
-- [ ] **Step 4: Implement bounded gather and isolated outcomes**
+- [x] **Step 4: Implement bounded gather and isolated outcomes**
 
 Create `app/services/wikipedia_fetching.py` with a private immutable fetch result
 and this public shape:
@@ -1855,7 +1855,7 @@ result with structured `job_id`, `phase="fetch"`, page id, attempts, outcome,
 discovery position, and safe error code. Never include HTML, extracted content,
 or payloads in log messages or metadata.
 
-- [ ] **Step 5: Run fetch and extraction tests**
+- [x] **Step 5: Run fetch and extraction tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_fetching.py tests/unit/test_wikipedia_extraction.py tests/unit/test_wikipedia_client.py -q
@@ -1863,10 +1863,10 @@ or payloads in log messages or metadata.
 
 Expected: all selected tests pass.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/services/wikipedia_fetching.py app/services/wikipedia_crawl_store.py tests/unit/test_wikipedia_fetching.py
+git add app/services/wikipedia_fetching.py app/services/wikipedia_crawl_store.py tests/unit/test_wikipedia_fetching.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: stage fetched Wikipedia articles"
 git push origin main
 ```
