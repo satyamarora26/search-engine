@@ -9,9 +9,9 @@ FastAPI
   -> Celery worker
 ```
 
-The `workers.ping` task checks the worker connection. Search-index rebuilds and
-durable bulk document ingestion are the production workflows currently running
-through this layer. Wikipedia crawling will build on the same pattern later.
+The `workers.ping` task checks the worker connection. Search-index rebuilds,
+durable bulk document ingestion, and bounded Wikipedia category crawling run
+through this layer.
 
 ## Start Redis
 
@@ -77,6 +77,23 @@ PostgreSQL and Redis failures retry three times with bounded backoff.
 
 See [Durable Bulk Document Ingestion](bulk-ingestion.md) for runnable requests and
 the result contract.
+
+## Wikipedia Category Crawls
+
+The crawl endpoint commits a durable PostgreSQL job and sends its UUID to the
+`wikipedia.crawl` task. The public job UUID and Celery task id are identical.
+The task uses late acknowledgement and `reject_on_worker_lost`, so a worker
+loss can redeliver the message. A PostgreSQL advisory lock prevents concurrent
+deliveries from running the same crawl, and persisted frontier, page, and item
+statuses let a redelivery resume safely.
+
+Wikimedia request failures classified as transient, plus PostgreSQL and Redis
+operational failures, retry with bounded backoff. A permanent page error is
+recorded on that page and does not discard successful siblings. The worker
+rebuilds and publishes one search snapshot after imported pages finish.
+
+See [Wikipedia Category Crawler](wikipedia-crawler.md) for request bounds,
+inspection endpoints, fake-Wikimedia verification, and the optional live smoke.
 
 ## Run The Complete Flow
 

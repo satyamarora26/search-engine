@@ -12,10 +12,12 @@ PENDING -> STARTED -> SUCCESS
 PENDING ----------------> FAILURE
 ```
 
-Search-index rebuild and bulk-ingestion jobs coordinate through one shared
-`search_index` resource. Only one may be pending or running at a time. Repeated
-rebuild requests return the existing rebuild job, while a competing job type or
-bulk request returns HTTP `409` with the active job reference.
+Search-index rebuild, bulk-ingestion, and Wikipedia crawler jobs coordinate
+through one shared `search_index` resource. Only one may be pending or running
+at a time. Repeated rebuild requests return the existing rebuild job, while a
+competing job type or bulk/crawl request returns HTTP `409` with the active job
+reference. A crawler owns the resource because its final publication can replace
+the active snapshot just like a rebuild.
 
 ## Start The Services
 
@@ -48,6 +50,19 @@ curl 'http://127.0.0.1:8000/api/v1/documents/bulk/JOB_ID/items?limit=100&offset=
 
 See [Durable Bulk Document Ingestion](bulk-ingestion.md) for submission, partial
 success, retry, and retention behavior.
+
+Wikipedia crawling also uses this status endpoint. Its progress total is unknown
+while category discovery is active. Once `N` pages are durably discovered, the
+worker sets the total to `N + 1`: one unit for each terminal fetch/ingestion page
+outcome and one final publication unit. The crawl item report is available from:
+
+```bash
+curl 'http://127.0.0.1:8000/api/v1/crawls/wikipedia/JOB_ID/items?limit=100&offset=0'
+```
+
+The four visible crawler phases are discovery, fetch, ingestion, and
+publication. The final result records discovered, fetched, imported, duplicate,
+fetch-failed, ingestion-failed, total-failed, and index-publication counts.
 
 ## Failure Safety
 
