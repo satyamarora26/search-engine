@@ -2365,7 +2365,7 @@ of both newly imported documents and the preexisting duplicate fixture before
 deleting and committing the job; then delete those documents. Job deletion
 cascades crawler and ingestion rows, so document ids must be collected first.
 
-- [ ] **Step 3: Run the deterministic end-to-end test**
+- [x] **Step 3: Run the deterministic end-to-end test**
 
 ```bash
 RUN_POSTGRES_INTEGRATION=1 /opt/anaconda3/bin/python3 -m pytest tests/integration/test_wikipedia_crawl_e2e.py -q
@@ -2376,7 +2376,7 @@ request host equals the running fake server's `127.0.0.1:<port>` authority and
 that the complete request log contains only the two configured local API path
 prefixes. This makes accidental public-network traffic a test failure.
 
-- [ ] **Step 4: Run end-to-end and regression suites**
+- [x] **Step 4: Run end-to-end and regression suites**
 
 ```bash
 RUN_POSTGRES_INTEGRATION=1 /opt/anaconda3/bin/python3 -m pytest tests/integration/test_wikipedia_crawl_e2e.py tests/integration/test_bulk_ingestion_e2e.py tests/integration/test_search_index_api_postgres.py -q
@@ -2443,7 +2443,7 @@ with crawler ownership of `search_index` and its unknown-to-fixed progress total
 Expected: all non-live tests pass; PostgreSQL-marked tests skip unless explicitly
 enabled.
 
-- [ ] **Step 3: Run the complete live PostgreSQL and Redis suite**
+- [x] **Step 3: Run the complete live PostgreSQL and Redis suite**
 
 ```bash
 docker compose up -d postgres redis
@@ -2454,7 +2454,7 @@ alembic current
 
 Expected: all tests pass and Alembic reports `20260721_0005 (head)`.
 
-- [ ] **Step 4: Verify separate API, worker, broker, and fake-Wikimedia processes**
+- [x] **Step 4: Verify separate API, worker, broker, and fake-Wikimedia processes**
 
 Run the fake server, worker, and API in three terminals with these shared
 environment values:
@@ -2548,7 +2548,7 @@ curl -sS "http://127.0.0.1:8000/api/v1/crawls/wikipedia/${LIVE_JOB_ID}/items"
 Treat this optional result as manual evidence only; do not gate completion or CI
 on this external service check.
 
-- [ ] **Step 6: Audit requirements and repository state**
+- [x] **Step 6: Audit requirements and repository state**
 
 Run:
 
@@ -2564,7 +2564,7 @@ Expected: no whitespace errors, no unintended generated files, and no crawler
 unfinished markers or debugging prints. Review every design acceptance criterion
 against a named test or the separate-process smoke result.
 
-- [ ] **Step 7: Commit and push documentation**
+- [x] **Step 7: Commit and push documentation**
 
 ```bash
 git add docs/wikipedia-crawler.md docs/celery-worker.md docs/job-tracking.md
@@ -2572,7 +2572,7 @@ git commit -m "docs: explain durable Wikipedia crawling"
 git push origin main
 ```
 
-- [ ] **Step 8: Verify the pushed tip**
+- [x] **Step 8: Verify the pushed tip**
 
 ```bash
 git status --short --branch

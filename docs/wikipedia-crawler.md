@@ -140,7 +140,18 @@ WIKIPEDIA_REST_API_URL=http://127.0.0.1:8765/w/rest.php/v1 \
 uvicorn app.main:app --port 8000
 ```
 
-Submit and poll the deterministic four-page crawl:
+Prepare and run the deterministic four-page crawl:
+
+First seed the existing article so the process smoke also exercises duplicate
+URL detection. Run this once; HTTP `409` means the fixture is already present.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/documents \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Existing search article","content":"This existing fixture exercises canonical Wikipedia URL duplicate detection.","url":"https://en.wikipedia.org/wiki/Existing_search_article"}'
+```
+
+Then submit and poll:
 
 ```bash
 JOB_ID=$(
