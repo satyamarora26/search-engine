@@ -33,17 +33,26 @@ class IngestionItemRepository:
         payloads: list[JsonValue],
     ) -> list[IngestionItem]:
         items = [
-            IngestionItem(
-                job_id=job_id,
-                position=position,
-                payload=payload,
-                status=PENDING_ITEM_STATUS,
-            )
+            self.stage_at_position(job_id, position, payload)
             for position, payload in enumerate(payloads)
         ]
-        self.session.add_all(items)
-        self.session.flush()
         return items
+
+    def stage_at_position(
+        self,
+        job_id: UUID,
+        position: int,
+        payload: JsonValue,
+    ) -> IngestionItem:
+        item = IngestionItem(
+            job_id=job_id,
+            position=position,
+            payload=payload,
+            status=PENDING_ITEM_STATUS,
+        )
+        self.session.add(item)
+        self.session.flush()
+        return item
 
     def get_for_update(self, item_id: int) -> IngestionItem | None:
         statement = (

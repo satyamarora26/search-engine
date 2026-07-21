@@ -60,6 +60,9 @@ class FakeSession:
         self.flushed = False
         self.statements = []
 
+    def add(self, instance: IngestionItem) -> None:
+        self.added.append(instance)
+
     def add_all(self, instances: list[IngestionItem]) -> None:
         self.added.extend(instances)
 
@@ -102,6 +105,23 @@ def test_stage_many_preserves_zero_based_positions_and_raw_payloads():
     assert all(item.job_id == JOB_ID for item in items)
     assert all(item.status == PENDING_ITEM_STATUS for item in items)
     assert session.added == items
+    assert session.flushed is True
+
+
+def test_stage_at_position_preserves_crawler_discovery_position():
+    session = FakeSession()
+    repository = repository_type()(session)
+
+    item = repository.stage_at_position(
+        JOB_ID,
+        17,
+        {"title": "BM25", "content": "ranking"},
+    )
+
+    assert item.job_id == JOB_ID
+    assert item.position == 17
+    assert item.status == PENDING_ITEM_STATUS
+    assert session.added == [item]
     assert session.flushed is True
 
 

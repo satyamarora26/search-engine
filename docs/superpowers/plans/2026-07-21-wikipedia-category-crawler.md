@@ -683,7 +683,7 @@ git push origin main
 - Produces: `IngestionItemRepository.stage_at_position(job_id, position, payload)`.
 - Consumes: crawler ORM models and existing ingestion statuses.
 
-- [ ] **Step 1: Write failing explicit-position and crawl-query tests**
+- [x] **Step 1: Write failing explicit-position and crawl-query tests**
 
 Extend `tests/unit/test_ingestion_item_repository.py`:
 
@@ -742,7 +742,7 @@ def test_item_view_query_outer_joins_ingestion_outcomes_and_paginates():
     assert "OFFSET 50" in sql
 ```
 
-- [ ] **Step 2: Run tests and verify missing interfaces**
+- [x] **Step 2: Run tests and verify missing interfaces**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_ingestion_item_repository.py tests/unit/test_wikipedia_crawl_repository.py -q
@@ -751,7 +751,7 @@ def test_item_view_query_outer_joins_ingestion_outcomes_and_paginates():
 Expected: failures for the missing crawler repository and explicit-position
 staging method.
 
-- [ ] **Step 3: Add immutable shared DTOs**
+- [x] **Step 3: Add immutable shared DTOs**
 
 Create `app/services/wikipedia_types.py` with frozen dataclasses:
 
@@ -857,7 +857,7 @@ class CrawlItemView:
     error: str | None
 ```
 
-- [ ] **Step 4: Implement repository reads and guarded writes**
+- [x] **Step 4: Implement repository reads and guarded writes**
 
 Add to `IngestionItemRepository`:
 
@@ -922,7 +922,7 @@ For `CrawlItemView.error`, choose `WikipediaCrawlPage.error` first and then the
 linked `IngestionItem.error`. Map the model's `canonical_url` column to the
 view's `url` field. Validate pagination before issuing SQL.
 
-- [ ] **Step 5: Run repository tests**
+- [x] **Step 5: Run repository tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_ingestion_item_repository.py tests/unit/test_wikipedia_crawl_repository.py -q
@@ -930,10 +930,10 @@ view's `url` field. Validate pagination before issuing SQL.
 
 Expected: all selected tests pass.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/services/wikipedia_types.py app/repositories/wikipedia_crawls.py app/repositories/ingestion_items.py tests/unit/test_wikipedia_crawl_repository.py tests/unit/test_ingestion_item_repository.py
+git add app/services/wikipedia_types.py app/repositories/wikipedia_crawls.py app/repositories/ingestion_items.py tests/unit/test_wikipedia_crawl_repository.py tests/unit/test_ingestion_item_repository.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: add Wikipedia crawl persistence boundaries"
 git push origin main
 ```
