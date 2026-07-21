@@ -1278,7 +1278,7 @@ git push origin main
 - Produces: `create_wikipedia_client(settings: Settings | None = None) -> WikipediaClient`.
 - Consumes: Task 2 settings and Task 4 source DTOs.
 
-- [ ] **Step 1: Write failing Action API parsing and URL tests**
+- [x] **Step 1: Write failing Action API parsing and URL tests**
 
 Create `tests/unit/test_wikipedia_client.py` with `httpx.MockTransport`. Keep the
 test environment independent of an async pytest plugin: every async scenario is
@@ -1349,7 +1349,7 @@ Assert the request includes `action=query`, `list=categorymembers`,
 Add a REST test proving `?`, slash, Unicode, and spaces in a title are percent
 encoded and the returned canonical URL uses `/wiki/<encoded-title>`.
 
-- [ ] **Step 2: Write failing traffic-control and error tests**
+- [x] **Step 2: Write failing traffic-control and error tests**
 
 Add deterministic injected clock/sleep/jitter tests for:
 
@@ -1368,7 +1368,8 @@ Add deterministic injected clock/sleep/jitter tests for:
   response errors without including the body.
 - A redirect to another host raises `wikipedia_redirect_rejected` before that
   external URL is requested.
-- Every request contains the configured descriptive `User-Agent` and no cookie.
+- Every request contains the configured descriptive `User-Agent` and no cookie,
+  including after a response attempts to set one before a same-host redirect.
 - `caplog` records request attempt/retry/completion events with operation,
   endpoint host, status, attempt, duration, and outcome fields, while a
   distinctive JSON body or HTML phrase never appears in any log message or
@@ -1377,7 +1378,7 @@ Add deterministic injected clock/sleep/jitter tests for:
 Use the same `asyncio.run()` convention for every retry, limiter, concurrency,
 streaming, redirect, and logging scenario in this file.
 
-- [ ] **Step 3: Run tests and verify the client is missing**
+- [x] **Step 3: Run tests and verify the client is missing**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_client.py -q
@@ -1385,7 +1386,7 @@ streaming, redirect, and logging scenario in this file.
 
 Expected: collection fails for missing `wikipedia_client`.
 
-- [ ] **Step 4: Implement rate limiting and safe errors**
+- [x] **Step 4: Implement rate limiting and safe errors**
 
 Use these public error contracts:
 
@@ -1445,7 +1446,7 @@ and `wikipedia_request_complete`; attach only operation, endpoint host,
 status code, attempt, delay, duration in milliseconds, and outcome metadata.
 Never attach response bytes, decoded JSON, HTML, or article content.
 
-- [ ] **Step 5: Implement bounded streamed requests and retries**
+- [x] **Step 5: Implement bounded streamed requests and retries**
 
 For each HTTP attempt:
 
@@ -1465,7 +1466,7 @@ count. Before another attempt, sleep for a valid `Retry-After`; otherwise sleep
 for `jitter(0.0, float(2**attempt))`. Do not retry permanent status, content-type,
 size, redirect, or decoding errors.
 
-- [ ] **Step 6: Implement discovery and article methods**
+- [x] **Step 6: Implement discovery and article methods**
 
 Define:
 
@@ -1495,7 +1496,7 @@ requires `text/html`, and returns the discovered title, decoded UTF-8 HTML,
 actual attempt count, and the canonical URL from the shared
 `wikipedia_article_url()` helper in `app/services/wikipedia_types.py`.
 
-- [ ] **Step 7: Run client tests**
+- [x] **Step 7: Run client tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_client.py -q
@@ -1503,10 +1504,10 @@ actual attempt count, and the canonical URL from the shared
 
 Expected: all client tests pass without live network access.
 
-- [ ] **Step 8: Commit and push**
+- [x] **Step 8: Commit and push**
 
 ```bash
-git add app/services/wikipedia_client.py tests/unit/test_wikipedia_client.py
+git add app/services/wikipedia_client.py tests/unit/test_wikipedia_client.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: add bounded Wikimedia API client"
 git push origin main
 ```
