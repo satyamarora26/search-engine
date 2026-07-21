@@ -4,9 +4,12 @@ from uuid import UUID
 import pytest
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+import app.services.jobs as jobs_module
 from app.models.job import (
+    BULK_DOCUMENT_INGESTION_JOB,
     PENDING_STATUS,
     SEARCH_INDEX_REBUILD_JOB,
+    SEARCH_INDEX_RESOURCE,
     STARTED_STATUS,
     SUCCESS_STATUS,
     Job,
@@ -22,10 +25,15 @@ from app.services.jobs import (
 JOB_ID = UUID("c241dbf0-2d4e-4b91-9ad7-ce097a543bbd")
 
 
-def build_job(*, status: str = PENDING_STATUS) -> Job:
+def build_job(
+    *,
+    status: str = PENDING_STATUS,
+    job_type: str = SEARCH_INDEX_REBUILD_JOB,
+) -> Job:
     return Job(
         id=JOB_ID,
-        job_type=SEARCH_INDEX_REBUILD_JOB,
+        job_type=job_type,
+        resource_key=SEARCH_INDEX_RESOURCE,
         status=status,
         progress_current=2 if status == STARTED_STATUS else 0,
         progress_total=4,
@@ -77,9 +85,10 @@ class FakeJobRepository:
         self.created_with = None
         self.failed_with = None
 
-    def get_active(self, job_type: str) -> Job | None:
+    def get_active_by_resource(self, resource_key: str) -> Job | None:
         if self.get_error:
             raise self.get_error
+        assert resource_key == SEARCH_INDEX_RESOURCE
         return self.active_results.pop(0)
 
     def create_pending(self, job_id: UUID, **values) -> Job:
@@ -120,6 +129,7 @@ def test_enqueue_commits_job_then_sends_same_uuid_to_celery():
     assert repository.created_with == {
         "job_id": JOB_ID,
         "job_type": SEARCH_INDEX_REBUILD_JOB,
+        "resource_key": SEARCH_INDEX_RESOURCE,
         "progress_total": 4,
         "progress_message": "Waiting for worker",
     }
@@ -136,6 +146,24 @@ def test_enqueue_returns_existing_active_job_without_sending_task():
     job = build_service(session, task, repository).enqueue_search_index_rebuild()
 
     assert job is existing
+    assert session.commits == 0
+    assert task.calls == []
+
+
+def test_enqueue_conflicts_with_active_bulk_ingestion_job():
+    session = FakeSession()
+    task = FakeTaskSender()
+    repository = FakeJobRepository()
+    existing = build_job(
+        status=STARTED_STATUS,
+        job_type=BULK_DOCUMENT_INGESTION_JOB,
+    )
+    repository.active_results = [existing]
+
+    with pytest.raises(jobs_module.IndexJobConflictError) as caught:
+        build_service(session, task, repository).enqueue_search_index_rebuild()
+
+    assert caught.value.active_job is existing
     assert session.commits == 0
     assert task.calls == []
 

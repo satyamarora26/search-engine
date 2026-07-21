@@ -2,7 +2,12 @@ from uuid import UUID
 
 from sqlalchemy.dialects import postgresql
 
-from app.models.job import Job, PENDING_STATUS, SEARCH_INDEX_REBUILD_JOB
+from app.models.job import (
+    Job,
+    PENDING_STATUS,
+    SEARCH_INDEX_REBUILD_JOB,
+    SEARCH_INDEX_RESOURCE,
+)
 from app.repositories.jobs import JobRepository
 
 JOB_ID = UUID("c241dbf0-2d4e-4b91-9ad7-ce097a543bbd")
@@ -54,12 +59,14 @@ def test_create_pending_adds_and_flushes_caller_owned_uuid():
     job = repository.create_pending(
         JOB_ID,
         job_type=SEARCH_INDEX_REBUILD_JOB,
+        resource_key=SEARCH_INDEX_RESOURCE,
         progress_total=4,
         progress_message="Waiting for worker",
     )
 
     assert job.id == JOB_ID
     assert job.status == PENDING_STATUS
+    assert job.resource_key == SEARCH_INDEX_RESOURCE
     assert job.progress_current == 0
     assert session.added == [job]
     assert session.flushed is True
@@ -74,13 +81,33 @@ def test_get_reads_job_by_uuid():
     assert f"jobs.id = '{JOB_ID}'" in compile_sql(session.statements[0])
 
 
-def test_get_active_filters_by_type_and_nonterminal_states():
+def test_get_active_by_type_filters_by_type_and_nonterminal_states():
     expected = Job(id=JOB_ID, job_type=SEARCH_INDEX_REBUILD_JOB)
     session = FakeSession(FakeScalarResult(expected))
 
-    assert JobRepository(session).get_active(SEARCH_INDEX_REBUILD_JOB) is expected
+    assert (
+        JobRepository(session).get_active_by_type(SEARCH_INDEX_REBUILD_JOB)
+        is expected
+    )
     sql = compile_sql(session.statements[0])
     assert "jobs.job_type = 'search_index_rebuild'" in sql
+    assert "jobs.status IN ('PENDING', 'STARTED')" in sql
+
+
+def test_get_active_by_resource_filters_by_resource_and_nonterminal_states():
+    expected = Job(
+        id=JOB_ID,
+        job_type=SEARCH_INDEX_REBUILD_JOB,
+        resource_key=SEARCH_INDEX_RESOURCE,
+    )
+    session = FakeSession(FakeScalarResult(expected))
+
+    assert (
+        JobRepository(session).get_active_by_resource(SEARCH_INDEX_RESOURCE)
+        is expected
+    )
+    sql = compile_sql(session.statements[0])
+    assert "jobs.resource_key = 'search_index'" in sql
     assert "jobs.status IN ('PENDING', 'STARTED')" in sql
 
 

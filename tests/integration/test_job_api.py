@@ -3,14 +3,17 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
+import app.services.jobs as jobs_module
 from app.api.dependencies import get_job_service
 from app.main import create_app
 from app.models.job import (
+    BULK_DOCUMENT_INGESTION_JOB,
     FAILURE_STATUS,
     PENDING_STATUS,
     SEARCH_INDEX_REBUILD_JOB,
     STARTED_STATUS,
     Job,
+    SEARCH_INDEX_RESOURCE,
 )
 from app.services.jobs import (
     JobEnqueueError,
@@ -21,10 +24,15 @@ from app.services.jobs import (
 JOB_ID = UUID("c241dbf0-2d4e-4b91-9ad7-ce097a543bbd")
 
 
-def build_job(*, status: str = PENDING_STATUS) -> Job:
+def build_job(
+    *,
+    status: str = PENDING_STATUS,
+    job_type: str = SEARCH_INDEX_REBUILD_JOB,
+) -> Job:
     return Job(
         id=JOB_ID,
-        job_type=SEARCH_INDEX_REBUILD_JOB,
+        job_type=job_type,
+        resource_key=SEARCH_INDEX_RESOURCE,
         status=status,
         progress_current=2 if status == STARTED_STATUS else 0,
         progress_total=4,
@@ -93,6 +101,24 @@ def test_duplicate_rebuild_can_return_existing_started_job():
     assert response.status_code == 202
     assert response.json()["job_id"] == str(JOB_ID)
     assert response.json()["status"] == "STARTED"
+
+
+def test_rebuild_conflict_returns_active_job_reference():
+    service = FakeJobService()
+    active_job = build_job(
+        status=STARTED_STATUS,
+        job_type=BULK_DOCUMENT_INGESTION_JOB,
+    )
+    service.enqueue_error = jobs_module.IndexJobConflictError(active_job)
+
+    response = build_client(service).post("/api/v1/search/rebuild")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "message": "A search index job is already active.",
+        "active_job_id": str(JOB_ID),
+        "status_url": f"/api/v1/jobs/{JOB_ID}",
+    }
 
 
 def test_job_status_returns_postgresql_backed_progress():

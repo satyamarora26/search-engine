@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.job import (
+    BULK_DOCUMENT_INGESTION_JOB,
     FAILURE_STATUS,
     PENDING_STATUS,
     SEARCH_INDEX_REBUILD_JOB,
+    SEARCH_INDEX_RESOURCE,
     STARTED_STATUS,
     SUCCESS_STATUS,
     Job,
@@ -44,21 +46,32 @@ def db_session():
         engine.dispose()
 
 
-def create_pending(repository: JobRepository, job_id=None) -> Job:
+def create_pending(
+    repository: JobRepository,
+    job_id=None,
+    *,
+    job_type: str = SEARCH_INDEX_REBUILD_JOB,
+) -> Job:
     return repository.create_pending(
         job_id or uuid4(),
-        job_type=SEARCH_INDEX_REBUILD_JOB,
+        job_type=job_type,
+        resource_key=SEARCH_INDEX_RESOURCE,
         progress_total=4,
         progress_message="Waiting for worker",
     )
 
 
-def test_partial_unique_index_allows_only_one_active_search_rebuild(db_session):
+def test_partial_unique_index_allows_only_one_active_search_resource_job(
+    db_session,
+):
     repository = JobRepository(db_session)
     create_pending(repository)
 
     with pytest.raises(IntegrityError):
-        create_pending(repository)
+        create_pending(
+            repository,
+            job_type=BULK_DOCUMENT_INGESTION_JOB,
+        )
 
 
 def test_terminal_job_allows_next_rebuild_and_cannot_be_overwritten(db_session):

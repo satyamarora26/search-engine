@@ -6,7 +6,11 @@ from uuid import UUID, uuid4
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.models.job import Job, SEARCH_INDEX_REBUILD_JOB
+from app.models.job import (
+    SEARCH_INDEX_REBUILD_JOB,
+    SEARCH_INDEX_RESOURCE,
+    Job,
+)
 from app.repositories.jobs import JobRepository
 
 logger = logging.getLogger(__name__)
@@ -23,6 +27,12 @@ class JobNotFoundError(Exception):
 
 class JobStorageError(Exception):
     pass
+
+
+class IndexJobConflictError(Exception):
+    def __init__(self, active_job: Job) -> None:
+        super().__init__("A search index job is already active.")
+        self.active_job = active_job
 
 
 class TaskSender(Protocol):
@@ -49,25 +59,26 @@ class JobService:
         self.repository = repository or JobRepository(session)
 
     def enqueue_search_index_rebuild(self) -> Job:
-        active_job = self._get_active_rebuild()
+        active_job = self._get_active_index_job()
         if active_job is not None:
-            return active_job
+            return self._resolve_rebuild_request(active_job)
 
         job_id = self.job_id_factory()
         try:
             job = self.repository.create_pending(
                 job_id,
                 job_type=SEARCH_INDEX_REBUILD_JOB,
+                resource_key=SEARCH_INDEX_RESOURCE,
                 progress_total=REBUILD_PROGRESS_TOTAL,
                 progress_message="Waiting for worker",
             )
             self.session.commit()
         except IntegrityError:
             self.session.rollback()
-            winning_job = self._get_active_rebuild()
+            winning_job = self._get_active_index_job()
             if winning_job is None:
                 raise JobStorageError("Job storage unavailable.")
-            return winning_job
+            return self._resolve_rebuild_request(winning_job)
         except SQLAlchemyError as error:
             self.session.rollback()
             raise JobStorageError("Job storage unavailable.") from error
@@ -92,12 +103,18 @@ class JobService:
             raise JobNotFoundError(f"Job {job_id} was not found.")
         return job
 
-    def _get_active_rebuild(self) -> Job | None:
+    def _get_active_index_job(self) -> Job | None:
         try:
-            return self.repository.get_active(SEARCH_INDEX_REBUILD_JOB)
+            return self.repository.get_active_by_resource(SEARCH_INDEX_RESOURCE)
         except SQLAlchemyError as error:
             self.session.rollback()
             raise JobStorageError("Job storage unavailable.") from error
+
+    @staticmethod
+    def _resolve_rebuild_request(active_job: Job) -> Job:
+        if active_job.job_type == SEARCH_INDEX_REBUILD_JOB:
+            return active_job
+        raise IndexJobConflictError(active_job)
 
     def _record_enqueue_failure(self, job_id: UUID) -> None:
         try:

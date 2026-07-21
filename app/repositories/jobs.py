@@ -23,12 +23,14 @@ class JobRepository:
         job_id: UUID,
         *,
         job_type: str,
+        resource_key: str | None = None,
         progress_total: int | None,
         progress_message: str | None,
     ) -> Job:
         job = Job(
             id=job_id,
             job_type=job_type,
+            resource_key=resource_key,
             status=PENDING_STATUS,
             progress_current=0,
             progress_total=progress_total,
@@ -43,9 +45,16 @@ class JobRepository:
         statement = select(Job).where(Job.id == job_id)
         return self.session.scalars(statement).one_or_none()
 
-    def get_active(self, job_type: str) -> Job | None:
+    def get_active_by_type(self, job_type: str) -> Job | None:
         statement = select(Job).where(
             Job.job_type == job_type,
+            Job.status.in_(ACTIVE_STATUSES),
+        )
+        return self.session.scalars(statement).one_or_none()
+
+    def get_active_by_resource(self, resource_key: str) -> Job | None:
+        statement = select(Job).where(
+            Job.resource_key == resource_key,
             Job.status.in_(ACTIVE_STATUSES),
         )
         return self.session.scalars(statement).one_or_none()

@@ -6,6 +6,7 @@ from app.api.dependencies import get_job_service
 from app.schemas.jobs import JobAcceptedResponse
 from app.schemas.search import SearchExplainResponse, SearchResponse
 from app.services.jobs import (
+    IndexJobConflictError,
     JobEnqueueError,
     JobService,
     JobStorageError,
@@ -55,6 +56,15 @@ def rebuild_search_index(
 ) -> JobAcceptedResponse:
     try:
         job = service.enqueue_search_index_rebuild()
+    except IndexJobConflictError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": str(error),
+                "active_job_id": str(error.active_job.id),
+                "status_url": f"/api/v1/jobs/{error.active_job.id}",
+            },
+        ) from error
     except (JobEnqueueError, JobStorageError) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     return JobAcceptedResponse(
