@@ -9,9 +9,9 @@ FastAPI
   -> Celery worker
 ```
 
-The `workers.ping` task checks the worker connection. Search-index rebuilds are the
-first production workflow running through this layer; Wikipedia crawling and bulk
-ingestion will use the same pattern later.
+The `workers.ping` task checks the worker connection. Search-index rebuilds and
+durable bulk document ingestion are the production workflows currently running
+through this layer. Wikipedia crawling will build on the same pattern later.
 
 ## Start Redis
 
@@ -63,6 +63,21 @@ The complete JSON snapshot is written before the active pointer. If indexing or
 Redis publication fails, the previous pointer remains active and API processes
 continue serving their last valid local index.
 
+## Durable Bulk Ingestion
+
+`POST /api/v1/documents/bulk` commits one PostgreSQL job and every raw input item
+before it sends the job UUID to `documents.bulk_ingest`. The worker processes each
+pending item in an independent transaction, records progress, and publishes one
+snapshot when at least one document was imported.
+
+The task uses late acknowledgement and worker-loss redelivery. A PostgreSQL
+advisory lock prevents concurrent deliveries of the same job, while persisted
+item statuses let a restarted delivery resume only unfinished items. Transient
+PostgreSQL and Redis failures retry three times with bounded backoff.
+
+See [Durable Bulk Document Ingestion](bulk-ingestion.md) for runnable requests and
+the result contract.
+
 ## Run The Complete Flow
 
 Start PostgreSQL and Redis, then apply migrations:
@@ -95,8 +110,9 @@ curl "http://127.0.0.1:8000/api/v1/jobs/${SEARCH_JOB_ID}"
 curl "http://127.0.0.1:8000/api/v1/search?q=bm25"
 ```
 
-PostgreSQL is the job-status source of truth. Job history survives Celery result
-expiry and Redis restarts, and an unknown valid job UUID returns HTTP 404.
+PostgreSQL is the job-status source of truth. Job and bulk-item history survives
+Celery result expiry and Redis restarts, and an unknown valid job UUID returns
+HTTP 404.
 
 ## Process Boundary
 
