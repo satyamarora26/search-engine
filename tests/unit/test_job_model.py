@@ -9,6 +9,7 @@ def test_job_model_uses_durable_job_columns():
     assert {
         "id",
         "job_type",
+        "resource_key",
         "status",
         "progress_current",
         "progress_total",
@@ -22,7 +23,7 @@ def test_job_model_uses_durable_job_columns():
     } == set(Job.__table__.columns.keys())
 
 
-def test_job_model_declares_state_progress_and_active_rebuild_guards():
+def test_job_model_declares_state_progress_and_active_resource_guards():
     constraint_names = {
         constraint.name for constraint in Job.__table__.constraints
     }
@@ -32,7 +33,8 @@ def test_job_model_declares_state_progress_and_active_rebuild_guards():
     assert "jobs_progress_current_check" in constraint_names
     assert "jobs_progress_total_check" in constraint_names
     assert "jobs_progress_bounds_check" in constraint_names
-    assert "jobs_one_active_search_index_rebuild_idx" in index_names
+    assert "jobs_one_active_resource_idx" in index_names
+    assert "jobs_one_active_search_index_rebuild_idx" not in index_names
 
 
 def test_job_model_compiles_postgresql_uuid_jsonb_and_timestamps():

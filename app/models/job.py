@@ -17,6 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 SEARCH_INDEX_REBUILD_JOB = "search_index_rebuild"
+BULK_DOCUMENT_INGESTION_JOB = "bulk_document_ingestion"
+SEARCH_INDEX_RESOURCE = "search_index"
 PENDING_STATUS = "PENDING"
 STARTED_STATUS = "STARTED"
 SUCCESS_STATUS = "SUCCESS"
@@ -46,11 +48,11 @@ class Job(Base):
         ),
         Index("jobs_status_created_at_idx", "status", "created_at"),
         Index(
-            "jobs_one_active_search_index_rebuild_idx",
-            "job_type",
+            "jobs_one_active_resource_idx",
+            "resource_key",
             unique=True,
             postgresql_where=text(
-                "job_type = 'search_index_rebuild' "
+                "resource_key is not null "
                 "and status in ('PENDING', 'STARTED')"
             ),
         ),
@@ -61,6 +63,7 @@ class Job(Base):
         primary_key=True,
     )
     job_type: Mapped[str] = mapped_column(Text, nullable=False)
+    resource_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         Text,
         nullable=False,
