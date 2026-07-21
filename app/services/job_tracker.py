@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.models.job import Job
 from app.repositories.jobs import JobRepository
 
 
@@ -20,6 +21,13 @@ class JobTracker:
     ) -> None:
         self.session_factory = session_factory
         self.repository_factory = repository_factory
+
+    def get_job(self, job_id: UUID) -> Job | None:
+        session = self.session_factory()
+        try:
+            return self.repository_factory(session).get(job_id)
+        finally:
+            session.close()
 
     def claim(
         self,

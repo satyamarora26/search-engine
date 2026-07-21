@@ -39,6 +39,9 @@ class FakeRepository:
     def claim(self, job_id, **values):
         return self._call("claim", job_id=job_id, **values)
 
+    def get(self, job_id):
+        return self._call("get", job_id=job_id)
+
     def update_progress(self, job_id, **values):
         return self._call("update_progress", job_id=job_id, **values)
 
@@ -79,6 +82,21 @@ def test_claim_commits_and_closes_a_short_session():
     assert claimed is True
     assert repositories[0].calls[0][0] == "claim"
     assert sessions[0].commits == 1
+    assert sessions[0].rollbacks == 0
+    assert sessions[0].closed is True
+
+
+def test_get_job_reads_and_closes_without_committing():
+    expected_job = object()
+    tracker, sessions, repositories = build_tracker(
+        repository_result=expected_job
+    )
+
+    job = tracker.get_job(JOB_ID)
+
+    assert job is expected_job
+    assert repositories[0].calls == [("get", {"job_id": JOB_ID})]
+    assert sessions[0].commits == 0
     assert sessions[0].rollbacks == 0
     assert sessions[0].closed is True
 
