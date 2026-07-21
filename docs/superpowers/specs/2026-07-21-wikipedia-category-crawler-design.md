@@ -229,11 +229,14 @@ and background snapshot publication is a separate cross-cutting improvement.
 | `max_articles` | integer | Required, 1 through 500 |
 | `max_depth` | smallint | Required, 0 through 2 |
 | `discovery_complete` | boolean | Required, initially false |
+| `category_limit_reached` | boolean | Required, initially false |
 | `created_at` | timestamptz | Required, database-generated |
 | `updated_at` | timestamptz | Required, changed with checkpoints |
 
 The job row owns lifecycle status. The crawl-run row owns immutable request
-parameters and the discovery checkpoint.
+parameters and the discovery checkpoint. `category_limit_reached` becomes true
+only when another eligible subcategory is suppressed by the internal safety
+limit, so an exact 100-category crawl that naturally ends is not misreported.
 
 ### Wikipedia Crawl Frontier
 
