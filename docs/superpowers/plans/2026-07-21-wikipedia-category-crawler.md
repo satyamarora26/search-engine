@@ -301,7 +301,7 @@ git push origin main
 - Produces: crawler defaults on `Settings` and matching environment overrides.
 - Consumes: the existing immutable `Settings` dataclass and `get_settings()`.
 
-- [ ] **Step 1: Write failing configuration tests**
+- [x] **Step 1: Write failing configuration tests**
 
 Append these assertions to `tests/unit/test_config.py`:
 
@@ -379,7 +379,10 @@ def test_wikipedia_settings_reject_blank_or_generic_user_agents(
         get_settings()
 ```
 
-- [ ] **Step 2: Run the tests and verify missing settings**
+Also parameterize every numeric crawler environment key with zero or a negative
+value and assert `ValueError` names that key.
+
+- [x] **Step 2: Run the tests and verify missing settings**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_config.py -q
@@ -387,7 +390,7 @@ def test_wikipedia_settings_reject_blank_or_generic_user_agents(
 
 Expected: imports or attribute assertions fail for the crawler settings.
 
-- [ ] **Step 3: Correct dependencies and add typed settings**
+- [x] **Step 3: Correct dependencies and add typed settings**
 
 In `requirements.txt`, replace `httpx2` and add the parser dependencies:
 
@@ -440,7 +443,7 @@ Reject a blank user agent and case-insensitive prefixes `python-httpx`,
 `python-requests`, and `curl`. Strip URL and user-agent environment values before
 storing them.
 
-- [ ] **Step 4: Document environment keys and install dependencies**
+- [x] **Step 4: Document environment keys and install dependencies**
 
 Append to `.env.example`:
 
@@ -464,7 +467,7 @@ Run:
 
 Expected: HTTPX, BeautifulSoup4, and lxml install successfully.
 
-- [ ] **Step 5: Run configuration tests**
+- [x] **Step 5: Run configuration tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_config.py tests/unit/test_celery_config.py -q
@@ -472,10 +475,10 @@ Expected: HTTPX, BeautifulSoup4, and lxml install successfully.
 
 Expected: all selected tests pass and existing Celery defaults remain unchanged.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add requirements.txt .env.example app/core/config.py tests/unit/test_config.py
+git add requirements.txt .env.example app/core/config.py tests/unit/test_config.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: configure bounded Wikimedia access"
 git push origin main
 ```

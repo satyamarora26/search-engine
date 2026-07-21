@@ -1,7 +1,9 @@
 alembic
 celery[redis]
 fastapi
-httpx2
+httpx
+beautifulsoup4
+lxml
 nltk
 psycopg[binary]
 redis
