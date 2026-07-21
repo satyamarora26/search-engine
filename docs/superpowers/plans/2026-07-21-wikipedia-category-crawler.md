@@ -2076,7 +2076,7 @@ git push origin main
 - Produces: Celery task `wikipedia.crawl` and `execute_wikipedia_crawl_attempt()`.
 - Consumes: `WikipediaCrawlRunner`, `PostgresAdvisoryLock`, `JobTracker`, and transient infrastructure errors.
 
-- [ ] **Step 1: Write failing worker-boundary tests**
+- [x] **Step 1: Write failing worker-boundary tests**
 
 Create `tests/unit/test_worker_wikipedia_tasks.py` following the existing bulk
 task fakes. Assert:
@@ -2114,7 +2114,7 @@ Add tests proving:
   durable public error remains exactly `Wikipedia crawl failed.`.
 - The Celery app imports `app.workers.wikipedia_tasks`.
 
-- [ ] **Step 2: Run tests and verify missing task registration**
+- [x] **Step 2: Run tests and verify missing task registration**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_worker_wikipedia_tasks.py tests/unit/test_celery_config.py -q
@@ -2122,7 +2122,7 @@ Add tests proving:
 
 Expected: collection or import assertions fail for the crawler task.
 
-- [ ] **Step 3: Implement the bound retrying task**
+- [x] **Step 3: Implement the bound retrying task**
 
 Create `app/workers/wikipedia_tasks.py` with:
 
@@ -2163,12 +2163,12 @@ Before final failure recording, load the job and require
 `job.job_type == WIKIPEDIA_CRAWL_JOB`; return without mutation for missing or
 misrouted jobs.
 
-- [ ] **Step 4: Register the task module**
+- [x] **Step 4: Register the task module**
 
 Add `"app.workers.wikipedia_tasks"` to the Celery `imports` tuple and extend the
 existing configuration assertion to require it.
 
-- [ ] **Step 5: Run worker and Celery tests**
+- [x] **Step 5: Run worker and Celery tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_worker_wikipedia_tasks.py tests/unit/test_celery_config.py tests/unit/test_worker_ingestion_tasks.py tests/unit/test_worker_search_tasks.py -q
@@ -2176,10 +2176,10 @@ existing configuration assertion to require it.
 
 Expected: all selected worker tests pass.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/workers/wikipedia_tasks.py app/workers/celery_app.py tests/unit/test_worker_wikipedia_tasks.py tests/unit/test_celery_config.py
+git add app/workers/wikipedia_tasks.py app/workers/celery_app.py tests/unit/test_worker_wikipedia_tasks.py tests/unit/test_celery_config.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: execute Wikipedia crawls with Celery"
 git push origin main
 ```
