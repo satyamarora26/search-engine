@@ -72,7 +72,7 @@ class FakeJobRepository:
         )
         return self.job
 
-    def mark_failure(self, job_id: UUID, *, error: str):
+    def mark_pending_failure(self, job_id: UUID, *, error: str):
         self.failed_with = {"job_id": job_id, "error": error}
         if self.failure_error is not None:
             raise self.failure_error

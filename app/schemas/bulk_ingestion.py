@@ -29,6 +29,8 @@ class BulkDocumentInput(BaseModel):
         stripped = value.strip()
         if not stripped:
             raise ValueError("must be a non-empty string")
+        if "\x00" in stripped:
+            raise ValueError("must not contain null characters")
         return stripped
 
     @field_validator("url")
@@ -36,7 +38,10 @@ class BulkDocumentInput(BaseModel):
     def strip_url(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        return value.strip() or None
+        stripped = value.strip()
+        if "\x00" in stripped:
+            raise ValueError("must not contain null characters")
+        return stripped or None
 
 
 def format_item_validation_error(error: ValidationError) -> str:

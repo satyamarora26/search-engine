@@ -42,7 +42,7 @@ def test_ingestion_item_model_declares_constraints_and_indexes():
     assert "ingestion_items_job_status_position_idx" in index_names
 
 
-def test_ingestion_item_model_compiles_postgresql_jsonb_and_foreign_keys():
+def test_ingestion_item_model_compiles_postgresql_json_and_foreign_keys():
     ingestion_item = get_ingestion_item_model()
     sql = str(
         CreateTable(ingestion_item.__table__).compile(
@@ -51,6 +51,7 @@ def test_ingestion_item_model_compiles_postgresql_jsonb_and_foreign_keys():
     )
 
     assert "CREATE TABLE ingestion_items" in sql
-    assert "JSONB NOT NULL" in sql
+    assert "JSON NOT NULL" in sql
+    assert "JSONB NOT NULL" not in sql
     assert "FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE" in sql
     assert "FOREIGN KEY(document_id) REFERENCES documents (id)" in sql

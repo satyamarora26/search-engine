@@ -73,6 +73,18 @@ def test_item_validation_strips_text_and_blank_url():
             {"title": "  ", "content": "Ranking"},
             "title: must be a non-empty string",
         ),
+        (
+            {"title": "BM25\x00hidden", "content": "Ranking"},
+            "title: must not contain null characters",
+        ),
+        (
+            {
+                "title": "BM25",
+                "content": "Ranking",
+                "url": "https://example.com/\x00hidden",
+            },
+            "url: must not contain null characters",
+        ),
     ],
 )
 def test_item_validation_returns_deterministic_safe_reason(payload, reason):

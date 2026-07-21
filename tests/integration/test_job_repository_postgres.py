@@ -124,6 +124,26 @@ def test_failure_is_terminal_and_stores_only_caller_supplied_safe_error(db_sessi
     assert rejected_claim is None
 
 
+def test_enqueue_failure_cannot_overwrite_started_job(db_session):
+    repository = JobRepository(db_session)
+    job = create_pending(repository)
+    started = repository.claim(
+        job.id,
+        progress_current=1,
+        progress_total=4,
+        progress_message="Loading documents",
+    )
+
+    rejected = repository.mark_pending_failure(
+        job.id,
+        error="Could not enqueue background job.",
+    )
+
+    assert started is not None and started.status == STARTED_STATUS
+    assert rejected is None
+    assert repository.get(job.id).status == STARTED_STATUS
+
+
 def test_database_rejects_progress_beyond_known_total(db_session):
     invalid = Job(
         id=uuid4(),

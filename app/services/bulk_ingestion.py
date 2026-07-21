@@ -120,7 +120,7 @@ class BulkIngestionService:
 
     def _record_enqueue_failure(self, job_id: UUID) -> None:
         try:
-            self.jobs.mark_failure(
+            self.jobs.mark_pending_failure(
                 job_id,
                 error="Could not enqueue background job.",
             )

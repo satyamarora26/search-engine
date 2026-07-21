@@ -103,7 +103,12 @@ class FakeJobRepository:
             raise self.get_error
         return self.job
 
-    def mark_failure(self, job_id: UUID, *, error: str) -> Job | None:
+    def mark_pending_failure(
+        self,
+        job_id: UUID,
+        *,
+        error: str,
+    ) -> Job | None:
         self.failed_with = {"job_id": job_id, "error": error}
         return self.job
 
@@ -198,6 +203,31 @@ def test_broker_failure_marks_job_failed_without_storing_raw_error():
         "error": "Could not enqueue background job.",
     }
     assert "password" not in repository.failed_with["error"]
+    assert session.commits == 2
+
+
+def test_ambiguous_broker_failure_does_not_overwrite_started_job():
+    session = FakeSession()
+    repository = FakeJobRepository()
+    task = FakeTaskSender()
+
+    def accepted_but_unacknowledged(*, args: list[str], task_id: str):
+        task.calls.append({"args": args, "task_id": task_id})
+        repository.job.status = STARTED_STATUS
+        raise ConnectionError("producer lost broker response")
+
+    task.apply_async = accepted_but_unacknowledged
+
+    def pending_only_failure(job_id: UUID, *, error: str):
+        repository.failed_with = {"job_id": job_id, "error": error}
+        return None
+
+    repository.mark_pending_failure = pending_only_failure
+
+    with pytest.raises(JobEnqueueError):
+        build_service(session, task, repository).enqueue_search_index_rebuild()
+
+    assert repository.job.status == STARTED_STATUS
     assert session.commits == 2
 
 

@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
+from sqlalchemy.dialects.postgresql import JSON, UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -73,7 +73,7 @@ class IngestionItem(Base):
         nullable=False,
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False)
-    payload: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[Any] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(
         Text,
         nullable=False,

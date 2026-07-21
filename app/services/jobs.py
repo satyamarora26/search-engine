@@ -118,7 +118,7 @@ class JobService:
 
     def _record_enqueue_failure(self, job_id: UUID) -> None:
         try:
-            self.repository.mark_failure(
+            self.repository.mark_pending_failure(
                 job_id,
                 error="Could not enqueue background job.",
             )

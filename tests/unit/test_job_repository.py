@@ -160,3 +160,17 @@ def test_failure_accepts_only_pending_or_started_jobs():
 
     sql = compile_sql(session.statements[0])
     assert "jobs.status IN ('PENDING', 'STARTED')" in sql
+
+
+def test_enqueue_failure_accepts_only_pending_jobs():
+    session = FakeSession(FakeScalarResult(Job(id=JOB_ID)))
+
+    JobRepository(session).mark_pending_failure(
+        JOB_ID,
+        error="Could not enqueue background job.",
+    )
+
+    sql = compile_sql(session.statements[0])
+    assert f"jobs.id = '{JOB_ID}'" in sql
+    assert "jobs.status = 'PENDING'" in sql
+    assert "STARTED" not in sql

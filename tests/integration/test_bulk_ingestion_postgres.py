@@ -16,6 +16,10 @@ from app.models.ingestion_item import (
 )
 from app.models.job import BULK_DOCUMENT_INGESTION_JOB, Job
 from app.repositories.documents import DocumentRepository
+from app.services.advisory_locks import (
+    JobAlreadyRunningError,
+    PostgresAdvisoryLock,
+)
 from app.services.document_ingestion import IngestionItemProcessor
 
 pytestmark = [
@@ -129,6 +133,20 @@ def test_database_rejects_negative_item_position(db_session):
         db_session.flush()
 
 
+def test_advisory_lock_rejects_second_connection_until_release():
+    job_id = uuid4()
+    first = PostgresAdvisoryLock()
+    second = PostgresAdvisoryLock()
+
+    with first.acquire(job_id):
+        with pytest.raises(JobAlreadyRunningError, match="already running"):
+            with second.acquire(job_id):
+                pytest.fail("second connection must not own the same job lock")
+
+    with second.acquire(job_id):
+        pass
+
+
 def test_processor_imports_valid_and_url_less_documents(db_session):
     job = create_bulk_job(db_session, 2)
     first, second = repository_type()(db_session).stage_many(
@@ -212,3 +230,36 @@ def test_processor_recovers_from_duplicate_url_and_marks_item_skipped(db_session
         offset=0,
     )
     assert persisted[0].status == SKIPPED_ITEM_STATUS
+
+
+def test_null_character_item_fails_without_rolling_back_valid_sibling(
+    db_session,
+):
+    job = create_bulk_job(db_session, 2)
+    invalid, valid = repository_type()(db_session).stage_many(
+        job.id,
+        [
+            {
+                "title": "Invalid\x00title",
+                "content": "PostgreSQL text cannot store null characters.",
+            },
+            {
+                "title": "Valid sibling",
+                "content": "This document must still be imported.",
+                "url": f"https://example.com/{uuid4()}",
+            },
+        ],
+    )
+    invalid_id = invalid.id
+    valid_id = valid.id
+    processor = IngestionItemProcessor(session_factory=lambda: db_session)
+
+    invalid_outcome = processor.process(invalid_id)
+    valid_outcome = processor.process(valid_id)
+
+    assert invalid_outcome.status == FAILED_ITEM_STATUS
+    assert invalid_outcome.error == (
+        "title: must not contain null characters"
+    )
+    assert valid_outcome.status == IMPORTED_ITEM_STATUS
+    assert valid_outcome.document_id is not None

@@ -142,3 +142,23 @@ class JobRepository:
             .returning(Job)
         )
         return self.session.scalars(statement).one_or_none()
+
+    def mark_pending_failure(
+        self,
+        job_id: UUID,
+        *,
+        error: str,
+    ) -> Job | None:
+        statement = (
+            update(Job)
+            .where(Job.id == job_id, Job.status == PENDING_STATUS)
+            .values(
+                status=FAILURE_STATUS,
+                result=None,
+                error=error,
+                finished_at=func.now(),
+                updated_at=func.now(),
+            )
+            .returning(Job)
+        )
+        return self.session.scalars(statement).one_or_none()

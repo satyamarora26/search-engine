@@ -7,11 +7,16 @@ from celery.exceptions import Ignore
 from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy.exc import OperationalError
 
-from app.models.job import STARTED_STATUS
+from app.models.job import (
+    BULK_DOCUMENT_INGESTION_JOB,
+    SEARCH_INDEX_REBUILD_JOB,
+    STARTED_STATUS,
+)
 from app.services.advisory_locks import (
     JobAlreadyRunningError,
     PostgresAdvisoryLock,
 )
+from app.services.job_tracker import JobTransitionError
 from app.workers.ingestion_tasks import (
     bulk_ingest_documents_task,
     execute_bulk_ingestion_attempt,
@@ -132,6 +137,7 @@ class FakeTracker:
     def __init__(self) -> None:
         self.job = SimpleNamespace(
             id=JOB_ID,
+            job_type=BULK_DOCUMENT_INGESTION_JOB,
             status=STARTED_STATUS,
             progress_current=1,
             progress_total=2,
@@ -252,6 +258,20 @@ def test_permanent_error_does_not_retry_and_marks_failure():
 
     assert context.retry_with is None
     assert tracker.failed_error == "Bulk ingestion failed."
+
+
+def test_misrouted_bulk_task_does_not_fail_active_rebuild_job():
+    execute, context, runner, _, tracker = execute_fixture()
+    tracker.job.job_type = SEARCH_INDEX_REBUILD_JOB
+    runner.error = JobTransitionError(
+        "Bulk ingestion job is missing or invalid."
+    )
+
+    with pytest.raises(JobTransitionError, match="missing or invalid"):
+        execute()
+
+    assert context.retry_with is None
+    assert tracker.failed_error is None
 
 
 def test_failure_recording_error_does_not_replace_original_exception():

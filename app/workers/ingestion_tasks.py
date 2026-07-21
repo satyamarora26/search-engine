@@ -11,7 +11,7 @@ from redis.exceptions import (
 )
 from sqlalchemy.exc import OperationalError
 
-from app.models.job import STARTED_STATUS
+from app.models.job import BULK_DOCUMENT_INGESTION_JOB, STARTED_STATUS
 from app.services.advisory_locks import (
     JobAlreadyRunningError,
     PostgresAdvisoryLock,
@@ -104,6 +104,12 @@ def _record_retry_progress(tracker: JobTracker, job_id: UUID) -> None:
 
 def _record_final_failure(tracker: JobTracker, job_id: UUID) -> None:
     try:
+        job = tracker.get_job(job_id)
+        if (
+            job is None
+            or job.job_type != BULK_DOCUMENT_INGESTION_JOB
+        ):
+            return
         tracker.mark_failure(job_id, error="Bulk ingestion failed.")
     except Exception:
         logger.exception(

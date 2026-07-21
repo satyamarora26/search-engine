@@ -155,7 +155,7 @@ The new `ingestion_items` table contains:
 | `id` | bigint identity | Primary key |
 | `job_id` | PostgreSQL UUID | Required FK to `jobs.id`, cascade on job deletion |
 | `position` | integer | Required zero-based request position |
-| `payload` | JSONB | Required original JSON value |
+| `payload` | JSON | Required original JSON value |
 | `status` | text | `pending`, `imported`, `skipped`, or `failed` |
 | `document_id` | bigint | Nullable FK to `documents.id` |
 | `error` | text | Nullable safe item-level reason |
@@ -169,7 +169,9 @@ non-negative positions, and coherent terminal data:
 - `imported` has a document id and no error.
 - `skipped` and `failed` have an error and no document id.
 
-The original payload is retained for worker validation and future diagnosis. The
+The original payload is retained for worker validation and future diagnosis.
+PostgreSQL `json` is intentional: unlike `jsonb`, it can preserve a valid JSON
+`\u0000` escape until worker validation classifies that item safely. The
 item-results API does not return full content, avoiding unnecessarily large
 responses.
 
