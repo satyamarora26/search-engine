@@ -2284,7 +2284,7 @@ git push origin main
 - Verifies: HTTP submission, Celery runner, retries, item outcomes, PostgreSQL documents, Redis publication, redelivery, and BM25 search.
 - Consumes: real local PostgreSQL and Redis plus all crawler production modules.
 
-- [ ] **Step 1: Build the deterministic fake Wikimedia server**
+- [x] **Step 1: Build the deterministic fake Wikimedia server**
 
 Create `tests/support/fake_wikimedia.py` around
 `ThreadingHTTPServer` and `BaseHTTPRequestHandler`. Expose a context manager with
@@ -2317,7 +2317,7 @@ return `404` for the missing page. Record every `User-Agent`; reject a missing
 one in the handler. Add a `python -m tests.support.fake_wikimedia --port 8765`
 entry point for separate-process verification.
 
-- [ ] **Step 2: Write the live-services end-to-end test**
+- [x] **Step 2: Write the live-services end-to-end test**
 
 Create `tests/integration/test_wikipedia_crawl_e2e.py` with the PostgreSQL marker.
 The test must:
@@ -2384,7 +2384,7 @@ RUN_POSTGRES_INTEGRATION=1 /opt/anaconda3/bin/python3 -m pytest tests/integratio
 
 Expected: all crawler, bulk, and search live-service tests pass.
 
-- [ ] **Step 5: Commit and push**
+- [x] **Step 5: Commit and push**
 
 ```bash
 git add tests/support tests/integration/test_wikipedia_crawl_e2e.py
@@ -2404,7 +2404,7 @@ git push origin main
 - Verifies: every acceptance criterion in the approved design and preserves all prior behavior.
 - Consumes: complete implementation from Tasks 1 through 13.
 
-- [ ] **Step 1: Write the crawler operations guide**
+- [x] **Step 1: Write the crawler operations guide**
 
 Create `docs/wikipedia-crawler.md` with exact commands for:
 
@@ -2434,7 +2434,7 @@ Extend `docs/celery-worker.md` with task name `wikipedia.crawl`, late
 acknowledgement, redelivery, and retry behavior. Extend `docs/job-tracking.md`
 with crawler ownership of `search_index` and its unknown-to-fixed progress total.
 
-- [ ] **Step 2: Run the complete default suite**
+- [x] **Step 2: Run the complete default suite**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest -q
