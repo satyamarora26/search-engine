@@ -954,7 +954,7 @@ git push origin main
 - Produces: `get_wikipedia_crawl_service()` and the two `/api/v1/crawls/wikipedia` routes.
 - Consumes: Task 1 schemas, Task 4 repository, `JobRepository`, and Celery task name `wikipedia.crawl`.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Create `tests/unit/test_wikipedia_crawls.py` using fake session, job repository,
 crawl repository, and task sender. Cover this exact successful transaction:
@@ -1002,7 +1002,7 @@ Also test:
 - Failure while recording enqueue failure does not replace `JobEnqueueError`.
 - `list_items()` accepts only a `wikipedia_crawl` job and maps storage errors.
 
-- [ ] **Step 2: Write failing FastAPI contract tests**
+- [x] **Step 2: Write failing FastAPI contract tests**
 
 Create `tests/integration/test_wikipedia_crawl_api.py` with a dependency-overridden
 fake service. Assert:
@@ -1025,7 +1025,7 @@ def test_submit_returns_202_job_contract():
 Add exact assertions for HTTP `409`, safe `503`, strict `422`, malformed UUID,
 pagination bounds, non-crawl `404`, and a page report that omits content and HTML.
 
-- [ ] **Step 3: Run tests and verify missing service and routes**
+- [x] **Step 3: Run tests and verify missing service and routes**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_crawls.py tests/integration/test_wikipedia_crawl_api.py -q
@@ -1033,7 +1033,7 @@ pagination bounds, non-crawl `404`, and a page report that omits content and HTM
 
 Expected: collection fails for missing crawler service/API modules.
 
-- [ ] **Step 4: Implement the transactional API-facing service**
+- [x] **Step 4: Implement the transactional API-facing service**
 
 Create `app/services/wikipedia_crawls.py` with:
 
@@ -1073,7 +1073,7 @@ race, roll back, load the active resource owner, and raise
 `list_items()` must first load and type-check the job, then call
 `count_item_views()` and `list_item_views()` in stable position order.
 
-- [ ] **Step 5: Register dependencies and routes**
+- [x] **Step 5: Register dependencies and routes**
 
 Add to `app/api/dependencies.py`:
 
@@ -1095,7 +1095,7 @@ with bounds 1..100 and nonnegative `offset`, then returns
 Register this router in `app/api/v1/router.py` before no conflicting dynamic
 route is introduced.
 
-- [ ] **Step 6: Run service and API tests**
+- [x] **Step 6: Run service and API tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_crawls.py tests/integration/test_wikipedia_crawl_api.py tests/integration/test_bulk_ingestion_api.py -q
@@ -1103,10 +1103,10 @@ route is introduced.
 
 Expected: crawler tests pass and the bulk API contract remains green.
 
-- [ ] **Step 7: Commit and push**
+- [x] **Step 7: Commit and push**
 
 ```bash
-git add app/services/wikipedia_crawls.py app/api/v1/crawls.py app/api/dependencies.py app/api/v1/router.py tests/unit/test_wikipedia_crawls.py tests/integration/test_wikipedia_crawl_api.py
+git add app/services/wikipedia_crawls.py app/api/v1/crawls.py app/api/dependencies.py app/api/v1/router.py tests/unit/test_wikipedia_crawls.py tests/integration/test_wikipedia_crawl_api.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: expose durable Wikipedia crawl API"
 git push origin main
 ```
