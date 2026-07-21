@@ -98,7 +98,7 @@ Modify:
 - Produces: `WikipediaCrawlRequest`, `WikipediaCrawlItemResponse`, and `WikipediaCrawlItemListResponse`.
 - Consumes: Pydantic v2 and no database or HTTP component.
 
-- [ ] **Step 1: Write failing request-normalization tests**
+- [x] **Step 1: Write failing request-normalization tests**
 
 Create `tests/unit/test_wikipedia_crawl_schemas.py` with these contracts:
 
@@ -192,7 +192,7 @@ def test_item_report_contains_outcomes_without_content_or_html():
     assert "html" not in dumped["items"][0]
 ```
 
-- [ ] **Step 2: Run the tests and verify the missing-module failure**
+- [x] **Step 2: Run the tests and verify the missing-module failure**
 
 Run:
 
@@ -202,7 +202,7 @@ Run:
 
 Expected: collection fails with `ModuleNotFoundError: app.schemas.wikipedia_crawls`.
 
-- [ ] **Step 3: Implement strict schemas and canonicalization**
+- [x] **Step 3: Implement strict schemas and canonicalization**
 
 Create `app/schemas/wikipedia_crawls.py` with this public surface:
 
@@ -217,9 +217,6 @@ def normalize_wikipedia_category(value: str) -> str:
     stripped = value.strip()
     if not stripped or any(ord(char) < 32 or ord(char) == 127 for char in stripped):
         raise ValueError("category must be a non-empty title without control characters")
-    parsed = urlsplit(stripped)
-    if parsed.scheme or parsed.netloc or stripped.startswith("//"):
-        raise ValueError("category must be a title, not a URL")
     title = (
         stripped[len("category:") :].strip()
         if stripped.casefold().startswith("category:")
@@ -227,6 +224,9 @@ def normalize_wikipedia_category(value: str) -> str:
     )
     if not title:
         raise ValueError("category title must not be empty")
+    parsed = urlsplit(title)
+    if parsed.scheme or parsed.netloc or title.startswith("//"):
+        raise ValueError("category must be a title, not a URL")
     canonical = f"Category:{title}"
     if len(canonical) > 255:
         raise ValueError("canonical category title must be at most 255 characters")
@@ -273,7 +273,7 @@ class WikipediaCrawlItemListResponse(BaseModel):
     items: list[WikipediaCrawlItemResponse]
 ```
 
-- [ ] **Step 4: Run the focused schema tests**
+- [x] **Step 4: Run the focused schema tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_crawl_schemas.py -q
@@ -281,10 +281,10 @@ class WikipediaCrawlItemListResponse(BaseModel):
 
 Expected: all crawler schema tests pass.
 
-- [ ] **Step 5: Commit and push**
+- [x] **Step 5: Commit and push**
 
 ```bash
-git add app/schemas/wikipedia_crawls.py tests/unit/test_wikipedia_crawl_schemas.py
+git add app/schemas/wikipedia_crawls.py tests/unit/test_wikipedia_crawl_schemas.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: define Wikipedia crawl contracts"
 git push origin main
 ```
