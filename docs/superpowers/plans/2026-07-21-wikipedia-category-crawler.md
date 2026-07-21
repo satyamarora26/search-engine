@@ -1117,13 +1117,14 @@ git push origin main
 - Create: `app/services/wikipedia_extraction.py`
 - Create: `tests/fixtures/wikipedia/article.html`
 - Create: `tests/unit/test_wikipedia_extraction.py`
+- Modify: `requirements.txt`
 
 **Interfaces:**
 - Produces: `WikipediaExtractionError(code: str)`.
 - Produces: `extract_wikipedia_text(html: str, *, minimum_characters: int = 100) -> str`.
 - Consumes: BeautifulSoup4 and lxml installed in Task 2.
 
-- [ ] **Step 1: Add a representative HTML fixture**
+- [x] **Step 1: Add a representative HTML fixture**
 
 Create `tests/fixtures/wikipedia/article.html` containing a body with:
 
@@ -1149,7 +1150,7 @@ Create `tests/fixtures/wikipedia/article.html` containing a body with:
 </body></html>
 ```
 
-- [ ] **Step 2: Write failing extraction tests**
+- [x] **Step 2: Write failing extraction tests**
 
 Create `tests/unit/test_wikipedia_extraction.py`:
 
@@ -1201,7 +1202,7 @@ def test_rejects_missing_or_short_article_content(html, code):
     assert caught.value.code == code
 ```
 
-- [ ] **Step 3: Run tests and verify the missing extractor**
+- [x] **Step 3: Run tests and verify the missing extractor**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_extraction.py -q
@@ -1209,7 +1210,7 @@ def test_rejects_missing_or_short_article_content(html, code):
 
 Expected: collection fails for missing `wikipedia_extraction`.
 
-- [ ] **Step 4: Implement pure deterministic extraction**
+- [x] **Step 4: Implement pure deterministic extraction**
 
 Create `app/services/wikipedia_extraction.py`. Define the excluded headings as
 case-folded exact names:
@@ -1245,7 +1246,10 @@ Join nonblank chunks with two newlines. Raise `WikipediaExtractionError` with
 only `missing_article_body`, `empty_article_content`, or `content_too_short`.
 Do not retain the original HTML on the exception.
 
-- [ ] **Step 5: Run extractor tests**
+Require `beautifulsoup4>=4.13,<5` so its lxml adapter does not use the removed
+`strip_cdata` parser option present in BeautifulSoup 4.12.
+
+- [x] **Step 5: Run extractor tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_extraction.py -q
@@ -1253,10 +1257,10 @@ Do not retain the original HTML on the exception.
 
 Expected: all extractor tests pass.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/services/wikipedia_extraction.py tests/fixtures/wikipedia/article.html tests/unit/test_wikipedia_extraction.py
+git add app/services/wikipedia_extraction.py tests/fixtures/wikipedia/article.html tests/unit/test_wikipedia_extraction.py requirements.txt docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: extract searchable Wikipedia prose"
 git push origin main
 ```

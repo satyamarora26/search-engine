@@ -2,7 +2,7 @@ alembic
 celery[redis]
 fastapi
 httpx
-beautifulsoup4
+beautifulsoup4>=4.13,<5
 lxml
 nltk
 psycopg[binary]
