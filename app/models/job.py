@@ -18,6 +18,7 @@ from app.db.base import Base
 
 SEARCH_INDEX_REBUILD_JOB = "search_index_rebuild"
 BULK_DOCUMENT_INGESTION_JOB = "bulk_document_ingestion"
+WIKIPEDIA_CRAWL_JOB = "wikipedia_crawl"
 SEARCH_INDEX_RESOURCE = "search_index"
 PENDING_STATUS = "PENDING"
 STARTED_STATUS = "STARTED"

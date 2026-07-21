@@ -498,7 +498,7 @@ git push origin main
 - Produces: `WIKIPEDIA_CRAWL_JOB`, crawl/frontier/page status constants, `WikipediaCrawlRun`, `WikipediaCrawlFrontier`, and `WikipediaCrawlPage`.
 - Consumes: existing `Job`, `IngestionItem`, SQLAlchemy `Base`, and revision `20260721_0004`.
 
-- [ ] **Step 1: Write failing model and DDL tests**
+- [x] **Step 1: Write failing model and DDL tests**
 
 Create `tests/unit/test_wikipedia_crawl_models.py` with exact column and guard checks:
 
@@ -557,7 +557,7 @@ from app.models.job import WIKIPEDIA_CRAWL_JOB
 assert WIKIPEDIA_CRAWL_JOB == "wikipedia_crawl"
 ```
 
-- [ ] **Step 2: Run tests and verify the missing models**
+- [x] **Step 2: Run tests and verify the missing models**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_job_model.py tests/unit/test_wikipedia_crawl_models.py -q
@@ -565,7 +565,7 @@ assert WIKIPEDIA_CRAWL_JOB == "wikipedia_crawl"
 
 Expected: collection fails because `app.models.wikipedia_crawl` does not exist.
 
-- [ ] **Step 3: Implement the three SQLAlchemy models**
+- [x] **Step 3: Implement the three SQLAlchemy models**
 
 Add `WIKIPEDIA_CRAWL_JOB = "wikipedia_crawl"` to `app/models/job.py`.
 
@@ -619,7 +619,7 @@ identity bigint row ids, timezone-aware timestamps, and the foreign-key/delete
 rules from the design. Export all three models in `app/models/__init__.py` and
 import them in `alembic/env.py` so `Base.metadata` is complete.
 
-- [ ] **Step 4: Write migration `20260721_0005`**
+- [x] **Step 4: Write migration `20260721_0005`**
 
 Create the three tables in dependency order and their two operational indexes.
 The migration header must contain:
@@ -646,7 +646,7 @@ op.drop_table("wikipedia_crawl_frontier")
 op.drop_table("wikipedia_crawl_runs")
 ```
 
-- [ ] **Step 5: Run model tests and migration round trip**
+- [x] **Step 5: Run model tests and migration round trip**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_job_model.py tests/unit/test_wikipedia_crawl_models.py -q
@@ -660,10 +660,10 @@ alembic current
 Expected: unit tests pass, downgrade reaches `20260721_0004`, and the final
 revision is `20260721_0005 (head)`.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/models/job.py app/models/wikipedia_crawl.py app/models/__init__.py alembic/env.py alembic/versions/20260721_0005_create_wikipedia_crawler.py tests/unit/test_job_model.py tests/unit/test_wikipedia_crawl_models.py
+git add app/models/job.py app/models/wikipedia_crawl.py app/models/__init__.py alembic/env.py alembic/versions/20260721_0005_create_wikipedia_crawler.py tests/unit/test_job_model.py tests/unit/test_wikipedia_crawl_models.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: add durable Wikipedia crawl schema"
 git push origin main
 ```

@@ -1,7 +1,11 @@
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from app.models.job import Job
+from app.models.job import WIKIPEDIA_CRAWL_JOB, Job
+
+
+def test_wikipedia_crawl_job_type_is_stable():
+    assert WIKIPEDIA_CRAWL_JOB == "wikipedia_crawl"
 
 
 def test_job_model_uses_durable_job_columns():
