@@ -61,6 +61,11 @@ Search calls `GET /api/v1/search` with `q`, `ranking`, and `limit`. The ranking
 selector supports the backend's `bm25` and `tfidf` values. Result source URLs
 open in a new browser tab with safe rel attributes.
 
+The workspace crawler-status panel uses the most recent crawl job id stored in
+browser `localStorage` after a crawl is submitted. It reads that job through
+`GET /api/v1/jobs/{job_id}`; no new recent-jobs backend endpoint is required in
+the first frontend milestone.
+
 ### Crawls
 
 The crawl screen contains:
@@ -145,6 +150,10 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Only device-local UI state, including the last submitted crawl job id, may be
+stored in browser storage. Documents, job results, and search snapshots remain
+owned by the backend.
 
 The frontend must document the required FastAPI, PostgreSQL, Redis, and Celery
 processes separately. No API secrets or database credentials belong in the
