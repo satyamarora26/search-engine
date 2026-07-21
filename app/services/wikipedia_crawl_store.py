@@ -177,6 +177,19 @@ class WikipediaCrawlStore:
         finally:
             session.close()
 
+    def list_pending_ingestion_ids(self, job_id: UUID) -> list[int]:
+        session = self.session_factory()
+        try:
+            repository = self.repository_factory(session)
+            if repository.get_run(job_id) is None:
+                raise WikipediaCrawlStateError("crawl_run_not_found")
+            return [
+                int(item_id)
+                for item_id in repository.list_pending_ingestion_ids(job_id)
+            ]
+        finally:
+            session.close()
+
     def checkpoint_discovery(
         self,
         job_id: UUID,

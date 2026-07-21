@@ -1886,7 +1886,7 @@ git push origin main
 - Produces: `WikipediaCrawlCompletionError` and `WikipediaCrawlRunner.run(job_id) -> dict[str, Any]`.
 - Consumes: `JobTracker`, discovery/fetch runners, `IngestionItemProcessor`, crawl counts, snapshot rebuild, and active-version store.
 
-- [ ] **Step 1: Write failing lifecycle and progress tests**
+- [x] **Step 1: Write failing lifecycle and progress tests**
 
 Create `tests/unit/test_wikipedia_crawl_runner.py` with fake tracker, store, client,
 processor, discovery phase, fetching phase, rebuild, and snapshot store. Inject
@@ -1938,7 +1938,7 @@ Add tests for:
 - Structured phase logs contain job id, phase, outcome, and numeric counts but
   never an ingestion payload, extracted content, or HTML.
 
-- [ ] **Step 2: Run tests and verify the runner is missing**
+- [x] **Step 2: Run tests and verify the runner is missing**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_crawl_runner.py -q
@@ -1946,7 +1946,7 @@ Add tests for:
 
 Expected: collection fails for missing `wikipedia_crawl_runner`.
 
-- [ ] **Step 3: Complete store reads required by orchestration**
+- [x] **Step 3: Complete store reads required by orchestration**
 
 Add to `WikipediaCrawlStore`:
 
@@ -1959,7 +1959,7 @@ integer ids, and closes the session. Use the `get_counts()` store method added
 in Task 8. Keep `get_run()` as the source of root category, request limits, and
 the category-limit flag.
 
-- [ ] **Step 4: Implement the resumable runner**
+- [x] **Step 4: Implement the resumable runner**
 
 Create `app/services/wikipedia_crawl_runner.py` with this constructor boundary:
 
@@ -2048,7 +2048,7 @@ for discovery, fetch, ingestion, and publication transitions, then
 id, phase, outcome, and numeric count fields; never log page payloads, HTML, or
 content. Use `caplog` to enforce that boundary in runner tests.
 
-- [ ] **Step 5: Run orchestration and existing ingestion tests**
+- [x] **Step 5: Run orchestration and existing ingestion tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_crawl_runner.py tests/unit/test_document_ingestion.py tests/unit/test_bulk_ingestion_runner.py -q
@@ -2056,10 +2056,10 @@ content. Use `caplog` to enforce that boundary in runner tests.
 
 Expected: all selected tests pass.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/services/wikipedia_crawl_runner.py app/services/wikipedia_crawl_store.py tests/unit/test_wikipedia_crawl_runner.py
+git add app/services/wikipedia_crawl_runner.py app/services/wikipedia_crawl_store.py tests/unit/test_wikipedia_crawl_runner.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: run durable Wikipedia crawl lifecycle"
 git push origin main
 ```
