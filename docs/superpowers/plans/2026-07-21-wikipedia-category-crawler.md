@@ -1524,7 +1524,7 @@ git push origin main
 - Produces: `WikipediaDiscoveryRunner.run(job_id) -> int` returning discovered count.
 - Consumes: Task 4 repository/DTOs and Task 7 `WikipediaClient.discover_category()`.
 
-- [ ] **Step 1: Write failing breadth-first runner tests**
+- [x] **Step 1: Write failing breadth-first runner tests**
 
 Create fake store and async fake client tests in
 `tests/unit/test_wikipedia_discovery.py`. Cover this call order:
@@ -1576,7 +1576,7 @@ Also test:
 
 Run every async fake scenario through an inner coroutine and `asyncio.run()`.
 
-- [ ] **Step 2: Run tests and verify missing discovery components**
+- [x] **Step 2: Run tests and verify missing discovery components**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_discovery.py -q
@@ -1584,7 +1584,7 @@ Run every async fake scenario through an inner coroutine and `asyncio.run()`.
 
 Expected: collection fails for missing store/discovery modules.
 
-- [ ] **Step 3: Implement short-session discovery storage**
+- [x] **Step 3: Implement short-session discovery storage**
 
 Create `app/services/wikipedia_crawl_store.py` with a `SessionLocal`-backed
 `WikipediaCrawlStore`. Define the state contracts and constructor exactly:
@@ -1657,7 +1657,7 @@ sets `discovery_complete=True`, commits, and returns the durable discovered
 count. A pending frontier at that point raises `crawl_state_conflict` instead of
 silently truncating discovery.
 
-- [ ] **Step 4: Implement the asynchronous discovery loop**
+- [x] **Step 4: Implement the asynchronous discovery loop**
 
 Create `app/services/wikipedia_discovery.py`:
 
@@ -1693,7 +1693,7 @@ request errors here; the Celery boundary owns whole-task discovery retries. Log
 category, depth, outcome, and discovered-count fields. Never log the response
 batch or its raw JSON.
 
-- [ ] **Step 5: Run discovery tests**
+- [x] **Step 5: Run discovery tests**
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest tests/unit/test_wikipedia_discovery.py tests/unit/test_wikipedia_crawl_repository.py -q
@@ -1701,10 +1701,10 @@ batch or its raw JSON.
 
 Expected: all discovery and repository tests pass.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```bash
-git add app/services/wikipedia_crawl_store.py app/services/wikipedia_discovery.py tests/unit/test_wikipedia_discovery.py
+git add app/services/wikipedia_crawl_store.py app/services/wikipedia_discovery.py tests/unit/test_wikipedia_discovery.py docs/superpowers/plans/2026-07-21-wikipedia-category-crawler.md
 git commit -m "feat: checkpoint Wikipedia category discovery"
 git push origin main
 ```
