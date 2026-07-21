@@ -118,7 +118,7 @@ class WikipediaCrawlFrontier(Base):
     category_title: Mapped[str] = mapped_column(Text, nullable=False)
     depth: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     continuation: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON,
+        JSON(none_as_null=True),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(

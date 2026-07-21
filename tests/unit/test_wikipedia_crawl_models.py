@@ -47,6 +47,10 @@ def test_frontier_has_durable_breadth_first_checkpoint_columns():
         "created_at",
         "updated_at",
     } == set(WikipediaCrawlFrontier.__table__.columns.keys())
+    assert (
+        WikipediaCrawlFrontier.__table__.c.continuation.type.none_as_null
+        is True
+    )
 
 
 def test_page_has_fetch_and_ingestion_link_columns():
