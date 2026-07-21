@@ -1817,6 +1817,10 @@ def fail_page(
 def terminal_count(self, job_id: UUID) -> int: ...
 ```
 
+Here, terminal means either fetch-failed or linked to an ingestion item whose
+outcome is imported, duplicate-skipped, or failed. A fetched page with pending
+ingestion is not terminal yet.
+
 `stage_fetched_page()` locks the pending crawl page, calls
 `IngestionItemRepository.stage_at_position()` with the crawl job and discovery
 position, then marks the page fetched with `datetime.now(timezone.utc)` in the

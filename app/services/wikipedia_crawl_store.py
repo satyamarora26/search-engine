@@ -173,7 +173,7 @@ class WikipediaCrawlStore:
             if repository.get_run(job_id) is None:
                 raise WikipediaCrawlStateError("crawl_run_not_found")
             counts = repository.counts(job_id)
-            return counts.fetched + counts.fetch_failed
+            return counts.terminal
         finally:
             session.close()
 

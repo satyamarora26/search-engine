@@ -57,7 +57,6 @@ class FakeFetchStore:
 
     def stage_fetched_page(self, page_id, *, attempts, payload):
         self.staged.append((page_id, attempts, payload))
-        self.terminal += 1
 
     def fail_page(self, page_id, *, attempts, error):
         self.failed.append((page_id, attempts, error))
@@ -153,7 +152,7 @@ def test_fetches_batch_concurrently_then_stages_normalized_payloads():
             },
         ),
     ]
-    assert progress == [1, 2]
+    assert progress == [0, 0]
 
 
 def test_at_most_twenty_pages_are_scheduled_per_gather_batch():
@@ -518,7 +517,7 @@ def test_store_rolls_back_when_guarded_page_transition_loses(operation):
     session.close.assert_called_once_with()
 
 
-def test_store_terminal_count_includes_fetched_and_fetch_failed_pages():
+def test_store_terminal_count_excludes_fetched_pages_pending_ingestion():
     counts = CrawlCounts(
         categories_visited=1,
         discovered=4,
@@ -532,5 +531,5 @@ def test_store_terminal_count_includes_fetched_and_fetch_failed_pages():
 
     terminal = store.terminal_count(JOB_ID)
 
-    assert terminal == 4
+    assert terminal == 1
     session.close.assert_called_once_with()
