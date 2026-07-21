@@ -63,6 +63,7 @@ def test_create_celery_app_uses_settings_and_json_serialization():
     assert celery_app.conf.accept_content == ["json"]
     assert "app.workers.tasks" in celery_app.conf.imports
     assert "app.workers.search_tasks" in celery_app.conf.imports
+    assert "app.workers.ingestion_tasks" in celery_app.conf.imports
 
 
 def test_create_celery_app_tracks_started_tasks():

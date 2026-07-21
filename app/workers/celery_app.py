@@ -14,6 +14,7 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
         imports=(
             "app.workers.tasks",
             "app.workers.search_tasks",
+            "app.workers.ingestion_tasks",
         ),
         task_serializer="json",
         result_serializer="json",
