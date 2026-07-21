@@ -16,6 +16,7 @@ from app.models.ingestion_item import (
 )
 from app.models.job import BULK_DOCUMENT_INGESTION_JOB, Job
 from app.repositories.documents import DocumentRepository
+from app.services.document_ingestion import IngestionItemProcessor
 
 pytestmark = [
     pytest.mark.postgres,
@@ -126,3 +127,88 @@ def test_database_rejects_negative_item_position(db_session):
 
     with pytest.raises(IntegrityError):
         db_session.flush()
+
+
+def test_processor_imports_valid_and_url_less_documents(db_session):
+    job = create_bulk_job(db_session, 2)
+    first, second = repository_type()(db_session).stage_many(
+        job.id,
+        [
+            {
+                "title": "  PostgreSQL search  ",
+                "content": "  Durable ingestion item.  ",
+                "url": f"https://example.com/{uuid4()}",
+            },
+            {"title": "URL optional", "content": "This has no URL."},
+        ],
+    )
+    first_id = first.id
+    second_id = second.id
+    processor = IngestionItemProcessor(session_factory=lambda: db_session)
+
+    first_outcome = processor.process(first_id)
+    second_outcome = processor.process(second_id)
+
+    assert first_outcome.status == IMPORTED_ITEM_STATUS
+    assert second_outcome.status == IMPORTED_ITEM_STATUS
+    assert first_outcome.document_id is not None
+    assert second_outcome.document_id is not None
+    first_document = DocumentRepository(db_session).get_active(
+        first_outcome.document_id
+    )
+    second_document = DocumentRepository(db_session).get_active(
+        second_outcome.document_id
+    )
+    assert first_document is not None
+    assert first_document.title == "PostgreSQL search"
+    assert first_document.content == "Durable ingestion item."
+    assert second_document is not None and second_document.url is None
+
+
+def test_processor_marks_invalid_payload_failed_without_document(db_session):
+    job = create_bulk_job(db_session, 1)
+    [item] = repository_type()(db_session).stage_many(
+        job.id,
+        [{"title": "Missing content"}],
+    )
+    processor = IngestionItemProcessor(session_factory=lambda: db_session)
+
+    outcome = processor.process(item.id)
+
+    assert outcome.status == FAILED_ITEM_STATUS
+    assert outcome.error == "content: Field required"
+    assert outcome.document_id is None
+
+
+def test_processor_recovers_from_duplicate_url_and_marks_item_skipped(db_session):
+    duplicate_url = f"https://example.com/{uuid4()}"
+    DocumentRepository(db_session).create(
+        title="Existing",
+        content="The first document owns this URL.",
+        url=duplicate_url,
+    )
+    job = create_bulk_job(db_session, 1)
+    [item] = repository_type()(db_session).stage_many(
+        job.id,
+        [
+            {
+                "title": "Duplicate",
+                "content": "The insert must roll back only its savepoint.",
+                "url": duplicate_url,
+            }
+        ],
+    )
+    job_id = job.id
+    item_id = item.id
+    processor = IngestionItemProcessor(session_factory=lambda: db_session)
+
+    outcome = processor.process(item_id)
+
+    assert outcome.status == SKIPPED_ITEM_STATUS
+    assert outcome.error == "duplicate_url"
+    persisted = repository_type()(db_session).list_for_job(
+        job_id,
+        limit=1,
+        offset=0,
+    )
+    assert persisted[0].status == SKIPPED_ITEM_STATUS
