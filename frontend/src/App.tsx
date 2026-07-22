@@ -2,26 +2,9 @@ import { useEffect, useState } from 'react'
 
 import { AppShell } from './components/AppShell'
 import { CrawlsPage } from './pages/CrawlsPage'
+import { LibraryPage } from './pages/LibraryPage'
 import { WorkspacePage } from './pages/WorkspacePage'
-import { navigateTo, routeFromPath, type AppRoute } from './state/routes'
-
-const pageCopy: Record<AppRoute, { eyebrow: string; title: string; copy: string }> = {
-  workspace: {
-    eyebrow: 'Personal search engine',
-    title: 'Find the useful thread.',
-    copy: 'Search, inspect, and understand the documents your index knows about.',
-  },
-  crawls: {
-    eyebrow: 'Wikipedia ingestion',
-    title: 'Bring new knowledge in.',
-    copy: 'Start a bounded crawl and watch every page move through the pipeline.',
-  },
-  library: {
-    eyebrow: 'Document library',
-    title: 'Everything your index has kept.',
-    copy: 'Browse the searchable corpus and inspect the source behind each result.',
-  },
-}
+import { navigateTo, routeFromPath } from './state/routes'
 
 function App() {
   const [route, setRoute] = useState(() => routeFromPath(window.location.pathname))
@@ -32,8 +15,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  const copy = pageCopy[route]
-
   return (
     <AppShell
       activeRoute={route}
@@ -42,11 +23,7 @@ function App() {
         setRoute(nextRoute)
       }}
     >
-      {route === 'workspace' ? <WorkspacePage /> : route === 'crawls' ? <CrawlsPage /> : <section className="page-intro" aria-labelledby="page-title">
-        <p className="page-eyebrow">{copy.eyebrow}</p>
-        <h1 id="page-title">{copy.title}</h1>
-        <p className="page-copy">{copy.copy}</p>
-      </section>}
+      {route === 'workspace' ? <WorkspacePage /> : route === 'crawls' ? <CrawlsPage /> : <LibraryPage />}
     </AppShell>
   )
 }
