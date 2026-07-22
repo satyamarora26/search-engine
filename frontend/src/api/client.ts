@@ -2,6 +2,7 @@ import type {
   AcceptedJob,
   Document,
   DocumentListResponse,
+  HealthResponse,
   JobStatusResponse,
   SearchExplainResponse,
   SearchRanking,
@@ -68,6 +69,10 @@ export function searchDocuments(
     limit: String(limit),
   })
   return requestJson<SearchResponse>(`/api/v1/search?${params}`)
+}
+
+export function getHealth(): Promise<HealthResponse> {
+  return requestJson<HealthResponse>('/api/v1/health')
 }
 
 export function explainSearch(

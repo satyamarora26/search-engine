@@ -14,6 +14,8 @@ class RedisClient(Protocol):
 
     def get(self, name: str) -> str | bytes | None: ...
 
+    def ping(self) -> bool: ...
+
 
 class RedisSearchIndexStore:
     def __init__(self, client: RedisClient) -> None:

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  getHealth,
   searchDocuments,
   submitWikipediaCrawl,
 } from './client'
@@ -51,5 +52,31 @@ describe('API client', () => {
       status: 409,
       message: 'An active index job already exists.',
     })
+  })
+
+  it('requests the current service health status', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      response({
+        status: 'healthy',
+        checks: {
+          api: { status: 'healthy', detail: null },
+          database: { status: 'healthy', detail: null },
+          redis: { status: 'healthy', detail: null },
+          search_index: {
+            status: 'healthy',
+            detail: null,
+            index_version: 'redis-v4',
+            document_count: 12,
+          },
+        },
+      }),
+    )
+
+    await getHealth()
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/health',
+      expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
+    )
   })
 })

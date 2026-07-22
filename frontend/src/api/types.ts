@@ -1,5 +1,17 @@
 export type SearchRanking = 'bm25' | 'tfidf'
 export type JobStatus = 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE'
+export type HealthStatus = 'healthy' | 'degraded'
+export type HealthCheckStatus = 'healthy' | 'unhealthy'
+
+export interface HealthCheck {
+  status: HealthCheckStatus
+  detail: string | null
+}
+
+export interface HealthResponse {
+  status: HealthStatus
+  checks: Record<string, HealthCheck>
+}
 
 export interface SearchResult {
   document_id: number

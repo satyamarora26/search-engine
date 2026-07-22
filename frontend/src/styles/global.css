@@ -256,6 +256,16 @@ h1 {
   color: var(--red);
 }
 
+.health-badge-spinner {
+  animation: health-badge-spin 1.1s linear infinite;
+}
+
+@keyframes health-badge-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .page-content {
   width: min(1180px, 100%);
   margin: 0 auto;
