@@ -1,0 +1,37 @@
+{
+  "name": "search engine sample corpus relevance benchmark",
+  "queries": [
+    {
+      "query": "bm25 ranking",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "tfidf search",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "inverted index",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "postgresql storage",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "wikipedia crawler",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "redis cache",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "search ranking",
+      "relevant_document_ids": [1, 2]
+    },
+    {
+      "query": "document indexing",
+      "relevant_document_ids": [3, 5]
+    }
+  ]
+}
