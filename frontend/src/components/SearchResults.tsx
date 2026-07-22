@@ -2,20 +2,31 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import type { SearchResponse } from '../api/types'
 
+import type { SearchExplanationState } from './SearchExplanation'
 import { SearchResultRow } from './SearchResultRow'
 
 type SearchResultsProps = {
+  explanations: Record<number, SearchExplanationState>
+  expandedExplanationId: number | null
   hasSubmitted: boolean
   isLoading: boolean
   onPageChange: (offset: number) => void
+  onRetryExplanation: (documentId: number) => void
+  onToggleExplanation: (documentId: number) => void
   response: SearchResponse | null
+  showExplanations: boolean
 }
 
 export function SearchResults({
+  explanations,
+  expandedExplanationId,
   hasSubmitted,
   isLoading,
   onPageChange,
+  onRetryExplanation,
+  onToggleExplanation,
   response,
+  showExplanations,
 }: SearchResultsProps) {
   if (isLoading) {
     return (
@@ -48,9 +59,14 @@ export function SearchResults({
       <div className="results-list">
         {response.results.map((result, index) => (
           <SearchResultRow
+            explanation={explanations[result.document_id]}
+            isExplanationExpanded={expandedExplanationId === result.document_id}
+            onRetryExplanation={() => onRetryExplanation(result.document_id)}
+            onToggleExplanation={() => onToggleExplanation(result.document_id)}
             key={result.document_id}
             position={response.offset + index}
             result={result}
+            showExplanation={showExplanations}
           />
         ))}
       </div>

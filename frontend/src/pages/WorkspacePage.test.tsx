@@ -249,7 +249,7 @@ describe('WorkspacePage', () => {
     await user.type(queryInput, 'ranking')
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(await screen.findByText('Ranking')).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Ranking' })).toBeVisible()
     expect(screen.queryByText('Score explanation')).not.toBeInTheDocument()
   })
 
