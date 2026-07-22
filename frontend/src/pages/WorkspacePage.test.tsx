@@ -2,18 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import type { JobStatusResponse, SearchResponse } from '../api/types'
+import type { JobStatusResponse, SearchExplainResponse, SearchResponse } from '../api/types'
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
   return {
     ...actual,
+    explainSearch: vi.fn(),
     getJobStatus: vi.fn(),
     searchDocuments: vi.fn(),
   }
 })
 
-import { getJobStatus, searchDocuments } from '../api/client'
+import { explainSearch, getJobStatus, searchDocuments } from '../api/client'
 import { WorkspacePage } from './WorkspacePage'
 
 const resultResponse: SearchResponse = {
@@ -33,6 +34,17 @@ const resultResponse: SearchResponse = {
     snippet: 'A concise explanation of indexing and ranking.',
     matched_terms: ['information', 'retrieval'],
   }],
+}
+
+const explanationResponse: SearchExplainResponse = {
+  query: 'information retrieval',
+  ranking: 'bm25',
+  document_id: 7,
+  final_score: 1.09,
+  terms: [
+    { term: 'information', term_frequency: 2, document_frequency: 4, idf: 0.81, contribution: 0.62 },
+    { term: 'retrieval', term_frequency: 1, document_frequency: 3, idf: 0.94, contribution: 0.47 },
+  ],
 }
 
 function job(status: JobStatusResponse['status']): JobStatusResponse {
@@ -58,7 +70,7 @@ function job(status: JobStatusResponse['status']): JobStatusResponse {
 
 describe('WorkspacePage', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     window.localStorage.clear()
   })
 
@@ -144,6 +156,101 @@ describe('WorkspacePage', () => {
       10,
       { offset: 10, scope: 'all', exact_phrase: false },
     )
+  })
+
+  it('loads and renders a BM25 score explanation', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue(resultResponse)
+    vi.mocked(explainSearch).mockResolvedValue(explanationResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await screen.findByText('Information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Explain score' }))
+
+    expect(explainSearch).toHaveBeenCalledWith('information retrieval', 7)
+    expect(await screen.findByText('Score explanation')).toBeVisible()
+    expect(screen.getByText('Final score')).toBeVisible()
+    expect(screen.getByText('0.62')).toBeVisible()
+  })
+
+  it('reuses a loaded explanation when it is reopened', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue(resultResponse)
+    vi.mocked(explainSearch).mockResolvedValue(explanationResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await screen.findByText('Information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Explain score' }))
+    await screen.findByText('Score explanation')
+    await user.click(screen.getByRole('button', { name: 'Hide score explanation' }))
+    await user.click(screen.getByRole('button', { name: 'Explain score' }))
+
+    expect(explainSearch).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Score explanation')).toBeVisible()
+  })
+
+  it('does not show score explanation for TF-IDF results', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue({ ...resultResponse, ranking: 'tfidf' })
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'ranking')
+    await user.selectOptions(screen.getByLabelText('Ranking'), 'tfidf')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    await screen.findByText('Information retrieval')
+    expect(screen.queryByRole('button', { name: 'Explain score' })).not.toBeInTheDocument()
+  })
+
+  it('retries a failed score explanation', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue(resultResponse)
+    vi.mocked(explainSearch)
+      .mockRejectedValueOnce(new Error('Explanation service unavailable.'))
+      .mockResolvedValueOnce(explanationResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await screen.findByText('Information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Explain score' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Explanation service unavailable.')
+    await user.click(screen.getByRole('button', { name: 'Retry score explanation' }))
+
+    expect(await screen.findByText('Score explanation')).toBeVisible()
+    expect(explainSearch).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears an explanation when a new search replaces the result context', async () => {
+    const nextResponse = {
+      ...resultResponse,
+      query: 'ranking',
+      results: [{ ...resultResponse.results[0], document_id: 8, title: 'Ranking' }],
+    }
+    vi.mocked(searchDocuments)
+      .mockResolvedValueOnce(resultResponse)
+      .mockResolvedValueOnce(nextResponse)
+    vi.mocked(explainSearch).mockResolvedValue(explanationResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await screen.findByText('Information retrieval')
+    await user.click(screen.getByRole('button', { name: 'Explain score' }))
+    await screen.findByText('Score explanation')
+
+    const queryInput = screen.getByLabelText('Search documents')
+    await user.clear(queryInput)
+    await user.type(queryInput, 'ranking')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('Ranking')).toBeVisible()
+    expect(screen.queryByText('Score explanation')).not.toBeInTheDocument()
   })
 
   it('shows a retryable service error', async () => {
