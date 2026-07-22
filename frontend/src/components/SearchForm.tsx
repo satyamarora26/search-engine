@@ -33,11 +33,9 @@ export function SearchForm({
 
   return (
     <form className="search-form" onSubmit={handleSubmit}>
+      <label className="search-field-label" htmlFor="search-documents">Search documents</label>
       <div className="search-input-wrap">
         <Search size={20} aria-hidden="true" />
-        <label className="sr-only" htmlFor="search-documents">
-          Search documents
-        </label>
         <input
           id="search-documents"
           onChange={(event) => setQuery(event.target.value)}
@@ -48,10 +46,10 @@ export function SearchForm({
         <span className="search-shortcut" aria-hidden="true">⌘K</span>
       </div>
       <div className="search-form-actions">
-        <label className="select-wrap">
-          <span className="sr-only">Ranking</span>
+        <label className="select-wrap" htmlFor="search-ranking">
+          <span>Ranking</span>
           <select
-            aria-label="Ranking"
+            id="search-ranking"
             onChange={(event) => setRanking(event.target.value as SearchRanking)}
             value={ranking}
           >
