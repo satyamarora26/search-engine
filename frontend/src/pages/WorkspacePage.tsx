@@ -1,11 +1,12 @@
 import { Database, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
-import { ApiError, searchDocuments } from '../api/client'
+import { ApiError, explainSearch, searchDocuments } from '../api/client'
 import type { SearchRanking, SearchResponse, SearchScope } from '../api/types'
 import { CrawlStatusPanel } from '../components/CrawlStatusPanel'
 import { Panel } from '../components/Panel'
 import { SearchForm } from '../components/SearchForm'
+import type { SearchExplanationState } from '../components/SearchExplanation'
 import { SearchResults } from '../components/SearchResults'
 
 const PAGE_SIZE = 10
@@ -20,6 +21,9 @@ export function WorkspacePage() {
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<ApiError | Error | null>(null)
+  const [explanations, setExplanations] = useState<Record<number, SearchExplanationState>>({})
+  const [expandedExplanationId, setExpandedExplanationId] = useState<number | null>(null)
+  const explanationContextRef = useRef(0)
 
   async function runSearch(
     nextQuery: string,
@@ -28,6 +32,9 @@ export function WorkspacePage() {
     nextExactPhrase = exactPhrase,
     nextOffset = 0,
   ) {
+    explanationContextRef.current += 1
+    setExplanations({})
+    setExpandedExplanationId(null)
     setQuery(nextQuery)
     setRanking(nextRanking)
     setScope(nextScope)
@@ -54,6 +61,50 @@ export function WorkspacePage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  async function loadExplanation(documentId: number) {
+    const context = explanationContextRef.current
+    setExplanations((current) => ({
+      ...current,
+      [documentId]: {
+        error: null,
+        isLoading: true,
+        response: current[documentId]?.response ?? null,
+      },
+    }))
+
+    try {
+      const explanation = await explainSearch(query, documentId)
+      if (context !== explanationContextRef.current) return
+      setExplanations((current) => ({
+        ...current,
+        [documentId]: { error: null, isLoading: false, response: explanation },
+      }))
+    } catch (requestError) {
+      if (context !== explanationContextRef.current) return
+      setExplanations((current) => ({
+        ...current,
+        [documentId]: {
+          error: requestError instanceof Error
+            ? requestError
+            : new Error('Explanation could not be loaded.'),
+          isLoading: false,
+          response: current[documentId]?.response ?? null,
+        },
+      }))
+    }
+  }
+
+  function toggleExplanation(documentId: number) {
+    if (expandedExplanationId === documentId) {
+      setExpandedExplanationId(null)
+      return
+    }
+
+    setExpandedExplanationId(documentId)
+    const state = explanations[documentId]
+    if (!state?.response && !state?.isLoading) void loadExplanation(documentId)
   }
 
   const isServiceError = error instanceof ApiError && error.status >= 500
@@ -91,6 +142,8 @@ export function WorkspacePage() {
               </div>
             )}
             <SearchResults
+              explanations={explanations}
+              expandedExplanationId={expandedExplanationId}
               hasSubmitted={hasSubmitted}
               isLoading={isLoading}
               onPageChange={(nextOffset) => {
@@ -98,7 +151,10 @@ export function WorkspacePage() {
                   void runSearch(query, ranking, scope, exactPhrase, nextOffset)
                 }
               }}
+              onRetryExplanation={(documentId) => void loadExplanation(documentId)}
+              onToggleExplanation={toggleExplanation}
               response={response}
+              showExplanations={ranking === 'bm25'}
             />
           </Panel>
         </div>
