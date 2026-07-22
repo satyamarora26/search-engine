@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { AppShell } from './components/AppShell'
+import { CrawlsPage } from './pages/CrawlsPage'
 import { WorkspacePage } from './pages/WorkspacePage'
 import { navigateTo, routeFromPath, type AppRoute } from './state/routes'
 
@@ -41,7 +42,7 @@ function App() {
         setRoute(nextRoute)
       }}
     >
-      {route === 'workspace' ? <WorkspacePage /> : <section className="page-intro" aria-labelledby="page-title">
+      {route === 'workspace' ? <WorkspacePage /> : route === 'crawls' ? <CrawlsPage /> : <section className="page-intro" aria-labelledby="page-title">
         <p className="page-eyebrow">{copy.eyebrow}</p>
         <h1 id="page-title">{copy.title}</h1>
         <p className="page-copy">{copy.copy}</p>
