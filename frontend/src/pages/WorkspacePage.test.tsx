@@ -21,6 +21,10 @@ const resultResponse: SearchResponse = {
   ranking: 'bm25',
   total_results: 1,
   index_version: 'redis-test',
+  limit: 10,
+  offset: 0,
+  scope: 'all',
+  exact_phrase: false,
   results: [{
     document_id: 7,
     title: 'Information retrieval',

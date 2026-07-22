@@ -91,3 +91,19 @@ def test_explain_missing_document_raises_clear_error():
         assert str(error) == "Document 404 is not indexed."
     else:
         raise AssertionError("Expected missing explanation to raise ValueError.")
+
+
+def test_title_scope_uses_the_matching_title_as_the_snippet():
+    service = SearchIndexService(
+        [
+            IndexedDocument(
+                id=11,
+                title="Python Search Guide",
+                content="A guide to a practical search engine.",
+            )
+        ]
+    )
+
+    response = service.search("python search", scope="title")
+
+    assert response.results[0].snippet == "Python Search Guide"

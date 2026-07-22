@@ -37,6 +37,24 @@ def test_document_length_is_stored():
     assert index.document_length(2) == 7
 
 
+def test_index_tracks_title_and_content_scopes():
+    index = build_index()
+
+    assert index.document_count(scope="title") == 2
+    assert index.document_count(scope="content") == 2
+    assert index.term_frequency(1, "python", scope="title") == 1
+    assert index.term_frequency(1, "python", scope="content") == 1
+    assert index.term_frequency(2, "java", scope="title") == 1
+    assert index.term_frequency(2, "java", scope="content") == 1
+
+
+def test_index_can_detect_contiguous_phrases_in_a_scope():
+    index = build_index()
+
+    assert index.contains_phrase(1, ["python", "search"], scope="content")
+    assert not index.contains_phrase(2, ["python", "search"], scope="content")
+
+
 def test_average_document_length_is_computed():
     index = build_index()
 

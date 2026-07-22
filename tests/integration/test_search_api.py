@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.services.search import SearchService
 from app.services.search_index_sync import get_synchronized_search_index_service
+from app.search.types import IndexedDocument
 
 
 def build_client() -> TestClient:
@@ -40,6 +41,68 @@ def test_search_api_supports_tfidf_ranking_and_limit():
     payload = response.json()
     assert payload["ranking"] == "tfidf"
     assert len(payload["results"]) <= 2
+
+
+def test_search_api_returns_pagination_and_advanced_search_metadata():
+    app = create_app()
+    search_index = SearchService(
+        [
+            IndexedDocument(
+                id=1,
+                title="Python Search",
+                content="python search concepts",
+            ),
+            IndexedDocument(
+                id=2,
+                title="Java Search",
+                content="search python concepts",
+            ),
+            IndexedDocument(
+                id=3,
+                title="Python Guide",
+                content="language guide",
+            ),
+        ]
+    )
+    app.dependency_overrides[
+        get_synchronized_search_index_service
+    ] = lambda: search_index
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/search",
+        params={
+            "q": "python search",
+            "scope": "content",
+            "exact_phrase": "true",
+            "limit": 1,
+            "offset": 0,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total_results"] == 1
+    assert response.json()["limit"] == 1
+    assert response.json()["offset"] == 0
+    assert response.json()["scope"] == "content"
+    assert response.json()["exact_phrase"] is True
+    assert [result["document_id"] for result in response.json()["results"]] == [1]
+
+
+def test_search_api_rejects_invalid_scope_and_negative_offset():
+    client = build_client()
+
+    invalid_scope = client.get(
+        "/api/v1/search",
+        params={"q": "bm25", "scope": "metadata"},
+    )
+    invalid_offset = client.get(
+        "/api/v1/search",
+        params={"q": "bm25", "offset": -1},
+    )
+
+    assert invalid_scope.status_code == 422
+    assert invalid_offset.status_code == 422
 
 
 def test_search_api_rejects_invalid_ranking():

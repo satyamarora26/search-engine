@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from app.search.inverted_index import InvertedIndex
-from app.search.types import SearchHit
+from app.search.types import SearchHit, SearchScope
 
 
 @dataclass(frozen=True)
@@ -24,17 +24,27 @@ class Bm25Ranker:
         self,
         query_terms: list[str],
         index: InvertedIndex,
-        limit: int = 10,
+        limit: int | None = 10,
+        scope: SearchScope = "all",
     ) -> list[SearchHit]:
-        if not query_terms or limit <= 0 or index.document_count() == 0:
+        if (
+            not query_terms
+            or (limit is not None and limit <= 0)
+            or index.document_count(scope=scope) == 0
+        ):
             return []
 
         scores: dict[int, float] = defaultdict(float)
         matched_terms: dict[int, set[str]] = defaultdict(set)
 
         for term in query_terms:
-            for posting in index.get_postings(term):
-                term_score = self._score_term(term, posting.document_id, index)
+            for posting in index.get_postings(term, scope=scope):
+                term_score = self._score_term(
+                    term,
+                    posting.document_id,
+                    index,
+                    scope=scope,
+                )
                 if term_score.contribution <= 0:
                     continue
 
@@ -49,18 +59,20 @@ class Bm25Ranker:
             )
             for document_id, score in scores.items()
         ]
-        return sorted(hits, key=lambda hit: (-hit.score, hit.document_id))[:limit]
+        ranked_hits = sorted(hits, key=lambda hit: (-hit.score, hit.document_id))
+        return ranked_hits if limit is None else ranked_hits[:limit]
 
     def explain(
         self,
         query_terms: list[str],
         document_id: int,
         index: InvertedIndex,
+        scope: SearchScope = "all",
     ) -> dict:
         terms = [
-            self._score_term(term, document_id, index)
+            self._score_term(term, document_id, index, scope=scope)
             for term in query_terms
-            if index.term_frequency(document_id, term) > 0
+            if index.term_frequency(document_id, term, scope=scope) > 0
         ]
 
         return {
@@ -83,14 +95,15 @@ class Bm25Ranker:
         term: str,
         document_id: int,
         index: InvertedIndex,
+        scope: SearchScope = "all",
     ) -> TermScore:
-        term_frequency = index.term_frequency(document_id, term)
-        document_frequency = index.document_frequency(term)
+        term_frequency = index.term_frequency(document_id, term, scope=scope)
+        document_frequency = index.document_frequency(term, scope=scope)
         if (
             term_frequency == 0
             or document_frequency == 0
-            or index.document_count() == 0
-            or index.average_document_length() == 0
+            or index.document_count(scope=scope) == 0
+            or index.average_document_length(scope=scope) == 0
         ):
             return TermScore(
                 term=term,
@@ -103,14 +116,18 @@ class Bm25Ranker:
         idf = math.log(
             1
             + (
-                (index.document_count() - document_frequency + 0.5)
+                (index.document_count(scope=scope) - document_frequency + 0.5)
                 / (document_frequency + 0.5)
             )
         )
-        document_length = index.document_length(document_id)
+        document_length = index.document_length(document_id, scope=scope)
         numerator = term_frequency * (self.k1 + 1)
         denominator = term_frequency + self.k1 * (
-            1 - self.b + self.b * document_length / index.average_document_length()
+            1
+            - self.b
+            + self.b
+            * document_length
+            / index.average_document_length(scope=scope)
         )
         contribution = idf * numerator / denominator
 

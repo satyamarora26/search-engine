@@ -2,7 +2,7 @@ import math
 from collections import defaultdict
 
 from app.search.inverted_index import InvertedIndex
-from app.search.types import SearchHit
+from app.search.types import SearchHit, SearchScope
 
 
 class TfidfRanker:
@@ -10,25 +10,33 @@ class TfidfRanker:
         self,
         query_terms: list[str],
         index: InvertedIndex,
-        limit: int = 10,
+        limit: int | None = 10,
+        scope: SearchScope = "all",
     ) -> list[SearchHit]:
-        if not query_terms or limit <= 0:
+        if (
+            not query_terms
+            or (limit is not None and limit <= 0)
+            or index.document_count(scope=scope) == 0
+        ):
             return []
 
         scores: dict[int, float] = defaultdict(float)
         matched_terms: dict[int, set[str]] = defaultdict(set)
 
         for term in query_terms:
-            document_frequency = index.document_frequency(term)
+            document_frequency = index.document_frequency(term, scope=scope)
             if document_frequency == 0:
                 continue
 
             idf = math.log(
-                (1 + index.document_count()) / (1 + document_frequency)
+                (1 + index.document_count(scope=scope)) / (1 + document_frequency)
             ) + 1
 
-            for posting in index.get_postings(term):
-                document_length = index.document_length(posting.document_id)
+            for posting in index.get_postings(term, scope=scope):
+                document_length = index.document_length(
+                    posting.document_id,
+                    scope=scope,
+                )
                 if document_length == 0:
                     continue
 
@@ -44,4 +52,5 @@ class TfidfRanker:
             )
             for document_id, score in scores.items()
         ]
-        return sorted(hits, key=lambda hit: (-hit.score, hit.document_id))[:limit]
+        ranked_hits = sorted(hits, key=lambda hit: (-hit.score, hit.document_id))
+        return ranked_hits if limit is None else ranked_hits[:limit]

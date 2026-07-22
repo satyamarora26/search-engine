@@ -2,7 +2,7 @@ from app.search.analyzer import BaseAnalyzer, SimpleAnalyzer
 from app.search.bm25 import Bm25Ranker
 from app.search.inverted_index import InvertedIndex
 from app.search.tfidf import TfidfRanker
-from app.search.types import IndexedDocument, SearchHit
+from app.search.types import IndexedDocument, SearchHit, SearchPage, SearchScope
 
 
 class SearchEngine:
@@ -31,18 +31,70 @@ class SearchEngine:
         query: str,
         ranking: str = "bm25",
         limit: int = 10,
+        offset: int = 0,
+        scope: SearchScope = "all",
+        exact_phrase: bool = False,
     ) -> list[SearchHit]:
+        return self.search_page(
+            query,
+            ranking=ranking,
+            limit=limit,
+            offset=offset,
+            scope=scope,
+            exact_phrase=exact_phrase,
+        ).hits
+
+    def search_page(
+        self,
+        query: str,
+        ranking: str = "bm25",
+        limit: int = 10,
+        offset: int = 0,
+        scope: SearchScope = "all",
+        exact_phrase: bool = False,
+    ) -> SearchPage:
+        if offset < 0:
+            raise ValueError("offset must be at least 0")
+
         query_terms = self.analyzer.analyze(query)
         if not query_terms:
-            return []
+            return SearchPage(hits=[], total_results=0)
+
+        ranked_limit = self.index.document_count(scope=scope)
 
         if ranking == "bm25":
-            return self.bm25_ranker.score(query_terms, self.index, limit=limit)
-        if ranking == "tfidf":
-            return self.tfidf_ranker.score(query_terms, self.index, limit=limit)
+            ranked_hits = self.bm25_ranker.score(
+                query_terms,
+                self.index,
+                limit=ranked_limit,
+                scope=scope,
+            )
+        elif ranking == "tfidf":
+            ranked_hits = self.tfidf_ranker.score(
+                query_terms,
+                self.index,
+                limit=ranked_limit,
+                scope=scope,
+            )
+        else:
+            raise ValueError(
+                f"Unsupported ranking '{ranking}'. Expected 'bm25' or 'tfidf'."
+            )
 
-        raise ValueError(
-            f"Unsupported ranking '{ranking}'. Expected 'bm25' or 'tfidf'."
+        if exact_phrase:
+            ranked_hits = [
+                hit
+                for hit in ranked_hits
+                if self.index.contains_phrase(
+                    hit.document_id,
+                    query_terms,
+                    scope=scope,
+                )
+            ]
+
+        return SearchPage(
+            hits=ranked_hits[offset : offset + limit],
+            total_results=len(ranked_hits),
         )
 
     def explain(
@@ -50,12 +102,18 @@ class SearchEngine:
         query: str,
         document_id: int,
         ranking: str = "bm25",
+        scope: SearchScope = "all",
     ) -> dict:
         if ranking != "bm25":
             raise ValueError("Search explanations currently support only BM25.")
 
         query_terms = self.analyzer.analyze(query)
-        explanation = self.bm25_ranker.explain(query_terms, document_id, self.index)
+        explanation = self.bm25_ranker.explain(
+            query_terms,
+            document_id,
+            self.index,
+            scope=scope,
+        )
 
         return {
             "document_id": document_id,

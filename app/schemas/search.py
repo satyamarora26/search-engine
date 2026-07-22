@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel
+
+SearchScope = Literal["all", "title", "content"]
 
 
 class SearchResult(BaseModel):
@@ -15,6 +19,10 @@ class SearchResponse(BaseModel):
     ranking: str
     total_results: int
     index_version: str
+    limit: int
+    offset: int
+    scope: SearchScope
+    exact_phrase: bool
     results: list[SearchResult]
 
 

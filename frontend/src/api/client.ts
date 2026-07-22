@@ -7,6 +7,7 @@ import type {
   SearchExplainResponse,
   SearchRanking,
   SearchResponse,
+  SearchScope,
   WikipediaCrawlItemListResponse,
 } from './types'
 
@@ -62,12 +63,26 @@ export function searchDocuments(
   query: string,
   ranking: SearchRanking,
   limit = 10,
+  options: {
+    offset?: number
+    scope?: SearchScope
+    exact_phrase?: boolean
+  } = {},
 ): Promise<SearchResponse> {
   const params = new URLSearchParams({
     q: query,
     ranking,
     limit: String(limit),
   })
+  if (options.offset) {
+    params.set('offset', String(options.offset))
+  }
+  if (options.scope && options.scope !== 'all') {
+    params.set('scope', options.scope)
+  }
+  if (options.exact_phrase) {
+    params.set('exact_phrase', 'true')
+  }
   return requestJson<SearchResponse>(`/api/v1/search?${params}`)
 }
 

@@ -12,7 +12,7 @@ from app.schemas.search import (
 )
 from app.search.corpus import load_documents_from_json
 from app.search.engine import SearchEngine
-from app.search.types import IndexedDocument, SearchHit
+from app.search.types import IndexedDocument, SearchHit, SearchScope
 
 DEFAULT_DB_INDEX_VERSION = "postgres-memory-v1"
 
@@ -79,15 +79,29 @@ class SearchIndexService:
         query: str,
         ranking: str = "bm25",
         limit: int = 10,
+        offset: int = 0,
+        scope: SearchScope = "all",
+        exact_phrase: bool = False,
     ) -> SearchResponse:
         with self._lock:
-            hits = self._engine.search(query, ranking=ranking, limit=limit)
-            results = [self._to_search_result(hit) for hit in hits]
+            page = self._engine.search_page(
+                query,
+                ranking=ranking,
+                limit=limit,
+                offset=offset,
+                scope=scope,
+                exact_phrase=exact_phrase,
+            )
+            results = [self._to_search_result(hit) for hit in page.hits]
             return SearchResponse(
                 query=query,
                 ranking=ranking,
-                total_results=len(results),
+                total_results=page.total_results,
                 index_version=self.index_version,
+                limit=limit,
+                offset=offset,
+                scope=scope,
+                exact_phrase=exact_phrase,
                 results=results,
             )
 
@@ -126,7 +140,7 @@ class SearchIndexService:
             title=document.title,
             url=document.url,
             score=hit.score,
-            snippet=_build_snippet(document.content, hit.matched_terms),
+            snippet=_build_snippet(document, hit.matched_terms),
             matched_terms=hit.matched_terms,
         )
 
@@ -142,16 +156,17 @@ def _to_indexed_document(document: Any) -> IndexedDocument:
     )
 
 
-def _build_snippet(content: str, matched_terms: list[str]) -> str:
+def _build_snippet(document: IndexedDocument, matched_terms: list[str]) -> str:
     lowered_terms = [term.lower() for term in matched_terms]
-    for segment in content.split("."):
-        candidate = segment.strip()
-        if not candidate:
-            continue
-        lowered_candidate = candidate.lower()
-        if any(term in lowered_candidate for term in lowered_terms):
-            return candidate[:180]
-    return content[:180]
+    for source in (document.title, document.content):
+        for segment in source.split("."):
+            candidate = segment.strip()
+            if not candidate:
+                continue
+            lowered_candidate = candidate.lower()
+            if any(term in lowered_candidate for term in lowered_terms):
+                return candidate[:180]
+    return document.content[:180]
 
 
 _search_index_service = SearchIndexService()

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies import get_job_service
 from app.schemas.jobs import JobAcceptedResponse
-from app.schemas.search import SearchExplainResponse, SearchResponse
+from app.schemas.search import SearchExplainResponse, SearchResponse, SearchScope
 from app.services.jobs import (
     IndexJobConflictError,
     JobEnqueueError,
@@ -22,12 +22,22 @@ def search(
     q: str = Query(..., alias="q"),
     ranking: Literal["bm25", "tfidf"] = "bm25",
     limit: int = Query(10, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    scope: SearchScope = "all",
+    exact_phrase: bool = False,
     search_index: SearchIndexService = Depends(
         get_synchronized_search_index_service
     ),
 ) -> SearchResponse:
     query = _require_non_blank_query(q)
-    return search_index.search(query, ranking=ranking, limit=limit)
+    return search_index.search(
+        query,
+        ranking=ranking,
+        limit=limit,
+        offset=offset,
+        scope=scope,
+        exact_phrase=exact_phrase,
+    )
 
 
 @router.get("/search/explain", response_model=SearchExplainResponse)

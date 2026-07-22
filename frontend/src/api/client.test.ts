@@ -25,6 +25,10 @@ describe('API client', () => {
         ranking: 'bm25',
         total_results: 0,
         index_version: 'redis-test',
+        limit: 10,
+        offset: 0,
+        scope: 'all',
+        exact_phrase: false,
         results: [],
       }),
     )
@@ -76,6 +80,33 @@ describe('API client', () => {
 
     expect(fetch).toHaveBeenCalledWith(
       '/api/v1/health',
+      expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
+    )
+  })
+
+  it('encodes advanced search options when provided', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      response({
+        query: 'python search',
+        ranking: 'bm25',
+        total_results: 1,
+        index_version: 'redis-test',
+        limit: 10,
+        offset: 10,
+        scope: 'content',
+        exact_phrase: true,
+        results: [],
+      }),
+    )
+
+    await searchDocuments('python search', 'bm25', 10, {
+      offset: 10,
+      scope: 'content',
+      exact_phrase: true,
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/search?q=python+search&ranking=bm25&limit=10&offset=10&scope=content&exact_phrase=true',
       expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
     )
   })

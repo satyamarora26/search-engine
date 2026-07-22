@@ -1,4 +1,5 @@
 export type SearchRanking = 'bm25' | 'tfidf'
+export type SearchScope = 'all' | 'title' | 'content'
 export type JobStatus = 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE'
 export type HealthStatus = 'healthy' | 'degraded'
 export type HealthCheckStatus = 'healthy' | 'unhealthy'
@@ -27,6 +28,10 @@ export interface SearchResponse {
   ranking: SearchRanking
   total_results: number
   index_version: string
+  limit: number
+  offset: number
+  scope: SearchScope
+  exact_phrase: boolean
   results: SearchResult[]
 }
 

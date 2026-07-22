@@ -61,6 +61,38 @@ def test_remove_document_removes_it_from_search_results():
     assert hits == []
 
 
+def test_search_supports_offset_pagination():
+    engine, _, _ = build_engine()
+
+    first_page = engine.search("search", limit=1, offset=0)
+    second_page = engine.search("search", limit=1, offset=1)
+
+    assert len(first_page) == 1
+    assert len(second_page) == 1
+    assert first_page[0].document_id != second_page[0].document_id
+
+
+def test_search_can_limit_matching_terms_to_a_field():
+    engine, _, _ = build_engine()
+
+    title_hits = engine.search("python", scope="title")
+    content_hits = engine.search("python", scope="content")
+
+    assert [hit.document_id for hit in title_hits] == [1]
+    assert [hit.document_id for hit in content_hits] == [1]
+
+
+def test_search_can_require_an_exact_phrase():
+    engine, _, _ = build_engine()
+
+    phrase_hits = engine.search(
+        "python search",
+        exact_phrase=True,
+    )
+
+    assert [hit.document_id for hit in phrase_hits] == [1]
+
+
 def test_explain_returns_final_score_and_term_contributions():
     engine, _, _ = build_engine()
 
