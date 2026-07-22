@@ -71,7 +71,12 @@ describe('WorkspacePage', () => {
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     expect(await screen.findByText('Information retrieval')).toBeVisible()
-    expect(searchDocuments).toHaveBeenCalledWith('information retrieval', 'bm25')
+    expect(searchDocuments).toHaveBeenCalledWith(
+      'information retrieval',
+      'bm25',
+      10,
+      { offset: 0, scope: 'all', exact_phrase: false },
+    )
   })
 
   it('switches to TF-IDF in the request', async () => {
@@ -83,7 +88,62 @@ describe('WorkspacePage', () => {
     await user.selectOptions(screen.getByLabelText('Ranking'), 'tfidf')
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
-    expect(searchDocuments).toHaveBeenCalledWith('ranking', 'tfidf')
+    expect(searchDocuments).toHaveBeenCalledWith(
+      'ranking',
+      'tfidf',
+      10,
+      { offset: 0, scope: 'all', exact_phrase: false },
+    )
+  })
+
+  it('submits scope and exact-phrase search options', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue(resultResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'information retrieval')
+    await user.selectOptions(screen.getByLabelText('Search scope'), 'content')
+    await user.click(screen.getByLabelText('Exact phrase'))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(searchDocuments).toHaveBeenCalledWith(
+      'information retrieval',
+      'bm25',
+      10,
+      { offset: 0, scope: 'content', exact_phrase: true },
+    )
+  })
+
+  it('paginates results while preserving advanced search options', async () => {
+    const firstPage = {
+      ...resultResponse,
+      total_results: 21,
+      limit: 10,
+      offset: 0,
+    }
+    const secondPage = {
+      ...firstPage,
+      offset: 10,
+      results: [{ ...resultResponse.results[0], document_id: 8 }],
+    }
+    vi.mocked(searchDocuments)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'ranking')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await screen.findByText('21 results')
+    await user.click(screen.getByRole('button', { name: 'Next search page' }))
+
+    expect(await screen.findByText('Page 2 of 3')).toBeVisible()
+    expect(searchDocuments).toHaveBeenLastCalledWith(
+      'ranking',
+      'bm25',
+      10,
+      { offset: 10, scope: 'all', exact_phrase: false },
+    )
   })
 
   it('shows a retryable service error', async () => {
