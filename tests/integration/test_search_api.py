@@ -70,6 +70,9 @@ def test_search_api_defaults_to_bm25():
     assert payload["query"] == "bm25 ranking"
     assert payload["ranking"] == "bm25"
     assert payload["index_version"] == "local-json-v1"
+    assert payload["source"] is None
+    assert payload["created_from"] is None
+    assert payload["created_to"] is None
     assert payload["results"][0]["title"] == "BM25 Ranking"
     assert payload["results"][0]["snippet"]
 
@@ -241,6 +244,28 @@ def test_search_api_returns_empty_200_for_valid_filter_with_no_matches():
     assert response.status_code == 200
     assert response.json()["total_results"] == 0
     assert response.json()["results"] == []
+
+
+def test_search_api_excludes_missing_metadata_only_for_the_active_filter():
+    client = build_metadata_client()
+
+    source_response = client.get(
+        "/api/v1/search",
+        params={"q": "search", "source": "example.com"},
+    )
+    date_response = client.get(
+        "/api/v1/search",
+        params={
+            "q": "search",
+            "created_from": "2026-07-20",
+            "created_to": "2026-07-20",
+        },
+    )
+
+    assert source_response.json()["total_results"] == 1
+    assert source_response.json()["results"][0]["document_id"] == 5
+    assert date_response.json()["total_results"] == 3
+    assert {result["document_id"] for result in date_response.json()["results"]} == {1, 3, 4}
 
 
 def test_search_api_rejects_reversed_created_date_range():
