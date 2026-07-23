@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,11 +26,15 @@ def search(
     offset: int = Query(0, ge=0),
     scope: SearchScope = "all",
     exact_phrase: bool = False,
+    source: str | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
     search_index: SearchIndexService = Depends(
         get_synchronized_search_index_service
     ),
 ) -> SearchResponse:
     query = _require_non_blank_query(q)
+    _validate_created_date_range(created_from, created_to)
     return search_index.search(
         query,
         ranking=ranking,
@@ -37,6 +42,9 @@ def search(
         offset=offset,
         scope=scope,
         exact_phrase=exact_phrase,
+        source=source,
+        created_from=created_from,
+        created_to=created_to,
     )
 
 
@@ -89,3 +97,14 @@ def _require_non_blank_query(query: str) -> str:
     if not stripped_query:
         raise HTTPException(status_code=422, detail="Query cannot be blank.")
     return stripped_query
+
+
+def _validate_created_date_range(
+    created_from: date | None,
+    created_to: date | None,
+) -> None:
+    if created_from is not None and created_to is not None and created_from > created_to:
+        raise HTTPException(
+            status_code=422,
+            detail="created_from must be on or before created_to.",
+        )

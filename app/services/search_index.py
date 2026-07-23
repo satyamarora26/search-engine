@@ -1,3 +1,5 @@
+from dataclasses import replace
+from datetime import date
 from collections.abc import Iterable
 from pathlib import Path
 from threading import RLock
@@ -12,6 +14,7 @@ from app.schemas.search import (
 )
 from app.search.corpus import load_documents_from_json
 from app.search.engine import SearchEngine
+from app.search.filters import derive_source_host, normalize_source
 from app.search.types import IndexedDocument, SearchHit, SearchScope
 
 DEFAULT_DB_INDEX_VERSION = "postgres-memory-v1"
@@ -82,7 +85,11 @@ class SearchIndexService:
         offset: int = 0,
         scope: SearchScope = "all",
         exact_phrase: bool = False,
+        source: str | None = None,
+        created_from: date | None = None,
+        created_to: date | None = None,
     ) -> SearchResponse:
+        normalized_source = normalize_source(source)
         with self._lock:
             page = self._engine.search_page(
                 query,
@@ -91,6 +98,9 @@ class SearchIndexService:
                 offset=offset,
                 scope=scope,
                 exact_phrase=exact_phrase,
+                source=normalized_source,
+                created_from=created_from,
+                created_to=created_to,
             )
             results = [self._to_search_result(hit) for hit in page.hits]
             return SearchResponse(
@@ -102,6 +112,9 @@ class SearchIndexService:
                 offset=offset,
                 scope=scope,
                 exact_phrase=exact_phrase,
+                source=normalized_source,
+                created_from=created_from,
+                created_to=created_to,
                 results=results,
             )
 
@@ -147,12 +160,18 @@ class SearchIndexService:
 
 def _to_indexed_document(document: Any) -> IndexedDocument:
     if isinstance(document, IndexedDocument):
-        return document
+        source_host = document.source_host or derive_source_host(document.url)
+        if source_host == document.source_host:
+            return document
+        return replace(document, source_host=source_host)
+    url = getattr(document, "url", None)
     return IndexedDocument(
         id=document.id,
         title=document.title,
         content=document.content,
-        url=document.url,
+        url=url,
+        source_host=derive_source_host(url),
+        created_at=getattr(document, "created_at", None),
     )
 
 

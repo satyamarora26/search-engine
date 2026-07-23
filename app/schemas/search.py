@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel
@@ -23,6 +24,9 @@ class SearchResponse(BaseModel):
     offset: int
     scope: SearchScope
     exact_phrase: bool
+    source: str | None
+    created_from: date | None
+    created_to: date | None
     results: list[SearchResult]
 
 

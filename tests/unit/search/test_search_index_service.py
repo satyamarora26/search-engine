@@ -1,3 +1,6 @@
+from datetime import UTC, date, datetime
+from types import SimpleNamespace
+
 from app.search.types import IndexedDocument
 from app.services.search_index import SearchIndexService
 
@@ -107,3 +110,44 @@ def test_title_scope_uses_the_matching_title_as_the_snippet():
     response = service.search("python search", scope="title")
 
     assert response.results[0].snippet == "Python Search Guide"
+
+
+def test_service_derives_source_host_and_copies_created_at_for_model_inputs():
+    service = SearchIndexService([
+        SimpleNamespace(
+            id=20,
+            title="Wikipedia Search",
+            content="python search",
+            url="https://en.wikipedia.org/wiki/Python",
+            created_at=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        )
+    ])
+
+    response = service.search(
+        "python",
+        source="WIKIPEDIA.org",
+        created_from=date(2026, 7, 23),
+    )
+
+    assert response.source == "wikipedia.org"
+    assert response.created_from == date(2026, 7, 23)
+    assert response.created_to is None
+    assert response.total_results == 1
+    assert response.results[0].document_id == 20
+
+
+def test_service_retains_explicit_snapshot_metadata():
+    service = SearchIndexService([
+        IndexedDocument(
+            id=21,
+            title="Explicit Source Search",
+            content="python search",
+            source_host="example.com",
+            created_at=datetime(2026, 7, 20, 12, 0, tzinfo=UTC),
+        )
+    ])
+
+    response = service.search("python", source="example.com")
+
+    assert response.total_results == 1
+    assert response.results[0].document_id == 21
