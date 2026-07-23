@@ -566,6 +566,14 @@ h1 {
   border-top: 1px solid var(--line);
 }
 
+.results-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 12px;
+  color: var(--blue);
+}
+
 .search-pagination {
   border-top: 1px solid var(--line);
 }

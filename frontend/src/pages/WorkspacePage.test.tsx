@@ -194,6 +194,9 @@ describe('WorkspacePage', () => {
     render(<WorkspacePage />)
 
     await user.type(screen.getByLabelText('Search documents'), 'ranking')
+    await user.type(screen.getByLabelText('Source or domain'), 'wikipedia.org')
+    await user.type(screen.getByLabelText('Created from'), '2026-07-01')
+    await user.type(screen.getByLabelText('Created to'), '2026-07-23')
     await user.click(screen.getByRole('button', { name: 'Search' }))
     await screen.findByText('21 results')
     await user.click(screen.getByRole('button', { name: 'Next search page' }))
@@ -203,8 +206,32 @@ describe('WorkspacePage', () => {
       'ranking',
       'bm25',
       10,
-      { offset: 10, scope: 'all', exact_phrase: false },
+      {
+        offset: 10,
+        scope: 'all',
+        exact_phrase: false,
+        source: 'wikipedia.org',
+        created_from: '2026-07-01',
+        created_to: '2026-07-23',
+      },
     )
+  })
+
+  it('renders the echoed applied-filter summary', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue({
+      ...resultResponse,
+      source: 'wikipedia.org',
+      created_from: '2026-07-01',
+      created_to: '2026-07-23',
+    })
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'ranking')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('Source: wikipedia.org')).toBeVisible()
+    expect(screen.getByText('Created: 2026-07-01 to 2026-07-23')).toBeVisible()
   })
 
   it('loads and renders a BM25 score explanation', async () => {
@@ -303,15 +330,35 @@ describe('WorkspacePage', () => {
   })
 
   it('shows a retryable service error', async () => {
-    vi.mocked(searchDocuments).mockRejectedValue(new Error('Search service unavailable.'))
+    vi.mocked(searchDocuments)
+      .mockRejectedValueOnce(new Error('Search service unavailable.'))
+      .mockResolvedValueOnce(resultResponse)
     const user = userEvent.setup()
     render(<WorkspacePage />)
 
     await user.type(screen.getByLabelText('Search documents'), 'ranking')
+    await user.type(screen.getByLabelText('Source or domain'), 'wikipedia.org')
+    await user.type(screen.getByLabelText('Created from'), '2026-07-01')
+    await user.type(screen.getByLabelText('Created to'), '2026-07-23')
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Search service unavailable.')
-    expect(screen.getByRole('button', { name: 'Retry search' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Retry search' }))
+
+    expect(await screen.findByText('Information retrieval')).toBeVisible()
+    expect(searchDocuments).toHaveBeenLastCalledWith(
+      'ranking',
+      'bm25',
+      10,
+      {
+        offset: 0,
+        scope: 'all',
+        exact_phrase: false,
+        source: 'wikipedia.org',
+        created_from: '2026-07-01',
+        created_to: '2026-07-23',
+      },
+    )
   })
 
   it('polls the remembered crawl job until it reaches a terminal state', async () => {

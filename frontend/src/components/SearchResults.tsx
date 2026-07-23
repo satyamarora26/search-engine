@@ -42,8 +42,22 @@ export function SearchResults({
     return <div className="result-state"><p>Search across your indexed documents to begin.</p></div>
   }
 
-  if (!response || response.results.length === 0) {
+  if (!response) {
     return <div className="result-state"><p>No matching documents yet. Try a broader phrase.</p></div>
+  }
+
+  const resultMeta = (
+    <div className="results-meta" aria-live="polite">
+      <span>{response.total_results} results</span>
+      <AppliedSearchFilters response={response} />
+    </div>
+  )
+
+  if (response.results.length === 0) {
+    return <>
+      {resultMeta}
+      <div className="result-state"><p>No matching documents yet. Try a broader phrase.</p></div>
+    </>
   }
 
   const pageCount = Math.max(1, Math.ceil(response.total_results / response.limit))
@@ -53,9 +67,7 @@ export function SearchResults({
 
   return (
     <>
-      <div className="results-meta" aria-live="polite">
-        <span>{response.total_results} results</span>
-      </div>
+      {resultMeta}
       <div className="results-list">
         {response.results.map((result, index) => (
           <SearchResultRow
@@ -96,5 +108,25 @@ export function SearchResults({
         </nav>
       )}
     </>
+  )
+}
+
+function AppliedSearchFilters({ response }: { response: SearchResponse }) {
+  const dateSummary = response.created_from && response.created_to
+    ? `Created: ${response.created_from} to ${response.created_to}`
+    : response.created_from
+      ? `Created from: ${response.created_from}`
+      : response.created_to
+        ? `Created to: ${response.created_to}`
+        : null
+  const hasFilters = Boolean(response.source || dateSummary)
+
+  if (!hasFilters) return null
+
+  return (
+    <div className="results-filter-summary" aria-label="Applied search filters">
+      {response.source && <span>Source: {response.source}</span>}
+      {dateSummary && <span>{dateSummary}</span>}
+    </div>
   )
 }
