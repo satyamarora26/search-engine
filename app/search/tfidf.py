@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from collections.abc import Collection
 
 from app.search.inverted_index import InvertedIndex
 from app.search.types import SearchHit, SearchScope
@@ -12,11 +13,13 @@ class TfidfRanker:
         index: InvertedIndex,
         limit: int | None = 10,
         scope: SearchScope = "all",
+        document_ids: Collection[int] | None = None,
     ) -> list[SearchHit]:
         if (
             not query_terms
             or (limit is not None and limit <= 0)
             or index.document_count(scope=scope) == 0
+            or (document_ids is not None and not document_ids)
         ):
             return []
 
@@ -32,7 +35,11 @@ class TfidfRanker:
                 (1 + index.document_count(scope=scope)) / (1 + document_frequency)
             ) + 1
 
-            for posting in index.get_postings(term, scope=scope):
+            for posting in index.get_postings(
+                term,
+                scope=scope,
+                document_ids=document_ids,
+            ):
                 document_length = index.document_length(
                     posting.document_id,
                     scope=scope,

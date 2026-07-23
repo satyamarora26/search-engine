@@ -1,3 +1,4 @@
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Literal
 
@@ -10,6 +11,8 @@ class IndexedDocument:
     title: str
     content: str
     url: str | None = None
+    source_host: str | None = None
+    created_at: datetime | None = None
 
 
 @dataclass(frozen=True)

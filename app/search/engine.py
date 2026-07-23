@@ -1,5 +1,8 @@
+from datetime import date
+
 from app.search.analyzer import BaseAnalyzer, SimpleAnalyzer
 from app.search.bm25 import Bm25Ranker
+from app.search.filters import normalize_source
 from app.search.inverted_index import InvertedIndex
 from app.search.tfidf import TfidfRanker
 from app.search.types import IndexedDocument, SearchHit, SearchPage, SearchScope
@@ -34,6 +37,9 @@ class SearchEngine:
         offset: int = 0,
         scope: SearchScope = "all",
         exact_phrase: bool = False,
+        source: str | None = None,
+        created_from: date | None = None,
+        created_to: date | None = None,
     ) -> list[SearchHit]:
         return self.search_page(
             query,
@@ -42,6 +48,9 @@ class SearchEngine:
             offset=offset,
             scope=scope,
             exact_phrase=exact_phrase,
+            source=source,
+            created_from=created_from,
+            created_to=created_to,
         ).hits
 
     def search_page(
@@ -52,6 +61,9 @@ class SearchEngine:
         offset: int = 0,
         scope: SearchScope = "all",
         exact_phrase: bool = False,
+        source: str | None = None,
+        created_from: date | None = None,
+        created_to: date | None = None,
     ) -> SearchPage:
         if offset < 0:
             raise ValueError("offset must be at least 0")
@@ -60,7 +72,12 @@ class SearchEngine:
         if not query_terms:
             return SearchPage(hits=[], total_results=0)
 
-        ranked_limit = self.index.document_count(scope=scope)
+        candidate_ids = self.index.filter_document_ids(
+            source=normalize_source(source),
+            created_from=created_from,
+            created_to=created_to,
+        )
+        ranked_limit = len(candidate_ids)
 
         if ranking == "bm25":
             ranked_hits = self.bm25_ranker.score(
@@ -68,6 +85,7 @@ class SearchEngine:
                 self.index,
                 limit=ranked_limit,
                 scope=scope,
+                document_ids=candidate_ids,
             )
         elif ranking == "tfidf":
             ranked_hits = self.tfidf_ranker.score(
@@ -75,6 +93,7 @@ class SearchEngine:
                 self.index,
                 limit=ranked_limit,
                 scope=scope,
+                document_ids=candidate_ids,
             )
         else:
             raise ValueError(

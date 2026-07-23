@@ -1,3 +1,5 @@
+from datetime import UTC, date, datetime
+
 import pytest
 
 from app.search.analyzer import SimpleAnalyzer
@@ -18,6 +20,30 @@ def build_engine() -> tuple[SearchEngine, InvertedIndex, SimpleAnalyzer]:
     engine.index_document(
         IndexedDocument(id=2, title="Java Search", content="java search engine")
     )
+    return engine, index, analyzer
+
+
+def build_engine_with_metadata() -> tuple[SearchEngine, InvertedIndex, SimpleAnalyzer]:
+    analyzer = SimpleAnalyzer(stopwords=set())
+    index = InvertedIndex(analyzer=analyzer)
+    engine = SearchEngine(analyzer=analyzer, index=index)
+    for document in (
+        IndexedDocument(
+            id=1,
+            title="Wikipedia Search",
+            content="search",
+            source_host="wikipedia.org",
+            created_at=datetime(2026, 7, 20, 12, 0, tzinfo=UTC),
+        ),
+        IndexedDocument(
+            id=2,
+            title="Wikipedia Subdomain Search",
+            content="search",
+            source_host="en.wikipedia.org",
+            created_at=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        ),
+    ):
+        engine.index_document(document)
     return engine, index, analyzer
 
 
@@ -106,3 +132,25 @@ def test_explain_returns_final_score_and_term_contributions():
     assert [term["term"] for term in explanation["terms"]] == ["python", "search"]
     assert explanation["terms"][0]["term_frequency"] == 3
     assert explanation["terms"][1]["term_frequency"] == 4
+
+
+def test_search_filters_candidates_before_bm25_and_paginates_filtered_results():
+    engine, _, _ = build_engine_with_metadata()
+
+    page = engine.search_page("search", source="wikipedia.org", limit=1, offset=1)
+
+    assert page.total_results == 2
+    assert [hit.document_id for hit in page.hits] == [2]
+
+
+def test_search_filters_candidates_for_tfidf_and_combines_date_bounds():
+    engine, _, _ = build_engine_with_metadata()
+
+    hits = engine.search(
+        "search",
+        ranking="tfidf",
+        created_from=date(2026, 7, 23),
+        created_to=date(2026, 7, 23),
+    )
+
+    assert [hit.document_id for hit in hits] == [2]

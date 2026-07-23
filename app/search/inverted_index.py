@@ -1,7 +1,9 @@
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from datetime import date, datetime
 
 from app.search.analyzer import BaseAnalyzer
+from app.search.filters import matches_metadata
 from app.search.types import IndexedDocument, Posting, SearchScope
 
 SCOPES: tuple[SearchScope, ...] = ("all", "title", "content")
@@ -16,9 +18,14 @@ class InvertedIndex:
         self._document_term_counts = {scope: {} for scope in SCOPES}
         self._document_terms = {scope: {} for scope in SCOPES}
         self._document_lengths = {scope: {} for scope in SCOPES}
+        self._document_metadata: dict[int, tuple[str | None, datetime | None]] = {}
 
     def add_document(self, document: IndexedDocument) -> None:
         self.remove_document(document.id)
+        self._document_metadata[document.id] = (
+            document.source_host,
+            document.created_at,
+        )
 
         scoped_terms = {
             "all": self.analyzer.analyze(
@@ -42,6 +49,8 @@ class InvertedIndex:
         if document_id not in self._document_term_counts["all"]:
             return
 
+        self._document_metadata.pop(document_id, None)
+
         for scope in SCOPES:
             term_counts = self._document_term_counts[scope].pop(document_id)
             self._document_terms[scope].pop(document_id, None)
@@ -61,6 +70,7 @@ class InvertedIndex:
         self,
         term: str,
         scope: SearchScope = "all",
+        document_ids: Collection[int] | None = None,
     ) -> list[Posting]:
         document_frequencies = self._term_document_frequencies[
             _validate_scope(scope)
@@ -68,7 +78,26 @@ class InvertedIndex:
         return [
             Posting(document_id=document_id, term_frequency=frequency)
             for document_id, frequency in sorted(document_frequencies.items())
+            if document_ids is None or document_id in document_ids
         ]
+
+    def filter_document_ids(
+        self,
+        source: str | None = None,
+        created_from: date | None = None,
+        created_to: date | None = None,
+    ) -> set[int]:
+        return {
+            document_id
+            for document_id, (document_source, document_created_at) in self._document_metadata.items()
+            if matches_metadata(
+                document_source,
+                document_created_at,
+                source,
+                created_from,
+                created_to,
+            )
+        }
 
     def document_frequency(
         self,
