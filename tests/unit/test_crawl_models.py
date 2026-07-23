@@ -56,6 +56,7 @@ def test_generic_item_has_source_neutral_fetch_and_ingestion_columns():
         "discovered_url",
         "canonical_url",
         "title",
+        "embedded_content",
         "fetch_status",
         "fetch_attempts",
         "ingestion_item_id",

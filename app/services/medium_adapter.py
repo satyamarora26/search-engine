@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator, Callable
+from html import escape
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -22,6 +23,7 @@ from app.services.medium_parsing import (
     normalize_medium_url,
     parse_article_html,
     parse_rss_feed,
+    parse_rss_publication_path,
     parse_sitemap,
 )
 
@@ -118,16 +120,20 @@ class MediumAdapter:
         seen: set[str] = set()
         discovered_count = 0
         rss_url = medium_feed_url(seed)
+        publication_path = seed.publication_path
         try:
             rss_page = await client.get(rss_url, accepted_content_type="xml")
             rss_items = parse_rss_feed(rss_page.body)
+            rss_publication_path = parse_rss_publication_path(rss_page.body)
+            if seed.origin == "https://medium.com" and rss_publication_path:
+                publication_path = rss_publication_path
         except (CrawlerPermanentError, CrawlerParseError):
             rss_items = ()
 
         rss_items = tuple(
             item
             for item in rss_items
-            if self._belongs_to_publication(item, seed)
+            if self._belongs_to_publication(item, seed, publication_path=publication_path)
             and not self._already_seen(item, seen)
         )
         if rss_items:
@@ -181,7 +187,11 @@ class MediumAdapter:
                 discovered_url=raw_url,
                 canonical_url=canonical,
             )
-            if not self._belongs_to_publication(item, seed):
+            if not self._belongs_to_publication(
+                item,
+                seed,
+                publication_path=publication_path,
+            ):
                 continue
             if self._already_seen(item, seen):
                 continue
@@ -210,6 +220,24 @@ class MediumAdapter:
             raise CrawlerDiscoveryError("medium_no_articles")
 
     async def fetch(self, discovered_item: DiscoveredItem) -> RawPage:
+        if discovered_item.embedded_content:
+            title = escape(discovered_item.title or "Medium article")
+            canonical_url = escape(discovered_item.canonical_url, quote=True)
+            body = (
+                "<html><head>"
+                f'<link rel="canonical" href="{canonical_url}">'
+                f'<meta property="og:title" content="{title}">'
+                "</head><body><article>"
+                f"{discovered_item.embedded_content}"
+                "</article></body></html>"
+            ).encode("utf-8")
+            return RawPage(
+                url=discovered_item.canonical_url,
+                status_code=200,
+                content_type="text/html",
+                body=body,
+                attempts=1,
+            )
         return await self._require_client().get(
             discovered_item.canonical_url,
             accepted_content_type="html",
@@ -233,6 +261,8 @@ class MediumAdapter:
     def _belongs_to_publication(
         item: DiscoveredItem,
         seed: NormalizedSeed,
+        *,
+        publication_path: str | None = None,
     ) -> bool:
         parsed = urlsplit(item.canonical_url)
         seed_host = (urlsplit(seed.origin).hostname or "").casefold()
@@ -240,7 +270,8 @@ class MediumAdapter:
         if parsed.scheme != "https" or item_host != seed_host:
             return False
         if seed.origin == "https://medium.com":
-            return parsed.path.startswith(seed.publication_path + "/")
+            scope = publication_path or seed.publication_path
+            return parsed.path.startswith(scope + "/")
         return parsed.path not in {"/feed", "/sitemap.xml", "/robots.txt"}
 
     def _require_client(self) -> MediumHttpClient:

@@ -110,9 +110,39 @@ def parse_rss_feed(body: bytes) -> tuple[DiscoveredItem, ...]:
                 title=title,
                 discovered_url=link,
                 canonical_url=canonical,
+                embedded_content=values.get("encoded") or None,
             )
         )
     return tuple(items)
+
+
+def parse_rss_publication_path(body: bytes) -> str | None:
+    try:
+        root = ElementTree.fromstring(body)
+    except (ElementTree.ParseError, UnicodeDecodeError):
+        raise CrawlerParseError("medium_invalid_rss") from None
+
+    for channel in root.iter():
+        if _local_name(channel.tag) != "channel":
+            continue
+        for element in channel:
+            if _local_name(element.tag) != "link":
+                continue
+            value = element.get("href") or (element.text or "").strip()
+            if not value:
+                continue
+            parsed = urlsplit(value)
+            if (
+                parsed.scheme.casefold() != "https"
+                or (parsed.hostname or "").casefold() != "medium.com"
+            ):
+                continue
+            path = parsed.path.rstrip("/")
+            if path.startswith("/feed/"):
+                path = path[5:]
+            if path and path != "/":
+                return path
+    return None
 
 
 def parse_sitemap(body: bytes) -> tuple[tuple[str, ...], tuple[str, ...]]:

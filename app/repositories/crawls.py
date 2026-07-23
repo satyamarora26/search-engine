@@ -149,6 +149,7 @@ class CrawlRepository:
             discovered_url=discovered_item.discovered_url,
             canonical_url=discovered_item.canonical_url,
             title=discovered_item.title,
+            embedded_content=discovered_item.embedded_content,
             fetch_status=PENDING_FETCH_STATUS,
             fetch_attempts=0,
         )
@@ -252,6 +253,7 @@ class CrawlRepository:
                 CrawlItem.title,
                 CrawlItem.discovered_url,
                 CrawlItem.canonical_url,
+                CrawlItem.embedded_content,
             )
             .where(
                 CrawlItem.job_id == job_id,
@@ -269,6 +271,7 @@ class CrawlRepository:
                     title=row[3],
                     discovered_url=row[4],
                     canonical_url=row[5],
+                    embedded_content=row[6],
                 ),
             )
             for row in self.session.execute(statement).all()

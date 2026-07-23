@@ -63,7 +63,7 @@ def test_health_reports_all_dependencies_when_available(monkeypatch):
     )
     monkeypatch.setattr(
         health_module,
-        "get_search_index_service",
+        "get_synchronized_search_index_service",
         lambda: FakeSearchIndex(),
     )
 
@@ -99,7 +99,7 @@ def test_health_reports_degraded_dependencies_without_exposing_errors(
     )
     monkeypatch.setattr(
         health_module,
-        "get_search_index_service",
+        "get_synchronized_search_index_service",
         lambda: FakeSearchIndex(should_fail=True),
     )
 

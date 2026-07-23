@@ -200,6 +200,7 @@ class CrawlItem(Base):
     discovered_url: Mapped[str] = mapped_column(Text, nullable=False)
     canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedded_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     fetch_status: Mapped[str] = mapped_column(
         Text,
         nullable=False,

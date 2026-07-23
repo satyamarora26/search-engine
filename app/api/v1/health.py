@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from app.db.session import SessionLocal
 from app.schemas.health import HealthCheck, HealthResponse
-from app.services.search_index import get_search_index_service
+from app.services.search_index_sync import get_synchronized_search_index_service
 from app.services.search_snapshots import create_redis_search_index_store
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def _check_redis() -> HealthCheck:
 
 def _check_search_index() -> HealthCheck:
     try:
-        index_status = get_search_index_service().status()
+        index_status = get_synchronized_search_index_service().status()
     except Exception:
         logger.warning(
             "Health check could not read search index status.",

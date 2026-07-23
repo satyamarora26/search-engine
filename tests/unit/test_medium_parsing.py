@@ -7,6 +7,7 @@ from app.services.medium_parsing import (
     normalize_medium_url,
     parse_article_html,
     parse_rss_feed,
+    parse_rss_publication_path,
     parse_sitemap,
 )
 
@@ -78,6 +79,31 @@ def test_parses_rss_items_in_feed_order_with_stable_source_ids():
             canonical_url="https://medium.com/towards-data-science/two",
         ),
     )
+
+
+def test_parses_publication_path_from_rss_channel_link():
+    body = RSS_FIXTURE.read_bytes().replace(
+        b"<title>Towards Data Science</title>",
+        b"<title>Towards Data Science</title>"
+        b"<link>https://medium.com/data-science?source=rss</link>",
+    )
+
+    assert parse_rss_publication_path(body) == "/data-science"
+
+
+def test_preserves_full_content_encoded_rss_entry():
+    body = (
+        b'<rss xmlns:content="http://purl.org/rss/1.0/modules/content/">'
+        b"<channel><item>"
+        b"<title>Full article</title>"
+        b"<link>https://medium.com/data-science/full-article</link>"
+        b"<content:encoded><![CDATA[<p>Full body</p>]]></content:encoded>"
+        b"</item></channel></rss>"
+    )
+
+    items = parse_rss_feed(body)
+
+    assert items[0].embedded_content == "<p>Full body</p>"
 
 
 def test_parses_sitemap_urls_and_sitemap_indexes():

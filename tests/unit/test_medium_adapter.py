@@ -175,6 +175,43 @@ def test_discovery_respects_article_limit_and_publication_scope():
     ]
 
 
+def test_discovery_uses_publication_path_declared_by_redirected_rss_feed():
+    redirected_feed = FEED.replace(
+        b"<title>Towards Data Science</title>",
+        b"<title>Towards Data Science</title>"
+        b"<link>https://medium.com/data-science?source=rss</link>",
+    ).replace(
+        b"https://medium.com/towards-data-science/",
+        b"https://medium.com/data-science/",
+    )
+    adapter, client = adapter_fixture(
+        {
+            "https://medium.com/feed/towards-data-science": page(
+                "https://medium.com/feed/towards-data-science",
+                redirected_feed,
+                "application/rss+xml",
+            ),
+        }
+    )
+    seed = adapter.validate_seed("https://medium.com/towards-data-science")
+
+    async def scenario():
+        async with adapter:
+            async for batch in adapter.discover(
+                seed,
+                CrawlLimits(max_articles=1, max_depth=0, max_response_bytes=10000),
+            ):
+                return batch.items
+        return ()
+
+    items = asyncio.run(scenario())
+
+    assert items[0].canonical_url == "https://medium.com/data-science/one"
+    assert [url for url, _kind in client.calls] == [
+        "https://medium.com/feed/towards-data-science"
+    ]
+
+
 def test_empty_discovery_is_a_safe_discovery_error():
     empty_feed = b"<rss><channel></channel></rss>"
     adapter, _client = adapter_fixture(
@@ -225,3 +262,25 @@ def test_fetch_and_parse_return_normalized_document():
     assert isinstance(document, NormalizedDocument)
     assert document.title == "Practical Search Ranking"
     assert "BM25 balances term frequency" in document.content
+
+
+def test_fetch_uses_embedded_rss_content_without_an_article_request():
+    adapter, client = adapter_fixture({})
+    item = DiscoveredItem(
+        source_item_id="article",
+        title="Embedded article",
+        discovered_url="https://medium.com/data-science/embedded-article",
+        canonical_url="https://medium.com/data-science/embedded-article",
+        embedded_content="<p>Content supplied by the publication feed.</p>",
+    )
+
+    async def scenario():
+        async with adapter:
+            raw = await adapter.fetch(item)
+            return adapter.parse(raw)
+
+    document = asyncio.run(scenario())
+
+    assert document.title == "Embedded article"
+    assert document.content == "Content supplied by the publication feed."
+    assert client.calls == []

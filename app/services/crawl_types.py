@@ -55,12 +55,15 @@ class DiscoveredItem:
     title: str | None
     discovered_url: str
     canonical_url: str
+    embedded_content: str | None = None
 
     def __post_init__(self) -> None:
         if self.source_item_id is not None:
             _require_text(self.source_item_id, "source_item_id")
         if self.title is not None:
             _require_text(self.title, "title")
+        if self.embedded_content is not None:
+            _require_text(self.embedded_content, "embedded_content", allow_whitespace=True)
         _require_text(self.discovered_url, "discovered_url")
         _require_text(self.canonical_url, "canonical_url")
 
