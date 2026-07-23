@@ -5,6 +5,7 @@ from app.db.session import get_db_session
 from app.services.bulk_ingestion import BulkIngestionService
 from app.services.jobs import JobService
 from app.services.wikipedia_crawls import WikipediaCrawlService
+from app.services.medium_crawls import MediumCrawlService
 from app.workers.celery_app import celery_app
 from app.workers.search_tasks import rebuild_search_index_snapshot_task
 
@@ -27,3 +28,10 @@ def get_wikipedia_crawl_service(
 ) -> WikipediaCrawlService:
     task = celery_app.signature("wikipedia.crawl")
     return WikipediaCrawlService(session, task)
+
+
+def get_medium_crawl_service(
+    session: Session = Depends(get_db_session),
+) -> MediumCrawlService:
+    task = celery_app.signature("crawl.medium")
+    return MediumCrawlService(session, task)
