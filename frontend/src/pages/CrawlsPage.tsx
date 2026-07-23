@@ -5,8 +5,10 @@ import {
   ApiError,
   getJobStatus,
   listMediumCrawlItems,
+  listRssCrawlItems,
   listWikipediaCrawlItems,
   submitMediumCrawl,
+  submitRssCrawl,
   submitWikipediaCrawl,
 } from '../api/client'
 import type { CrawlItem, JobStatusResponse } from '../api/types'
@@ -21,7 +23,9 @@ const POLL_DELAY_MS = 1500
 type CrawlError = Error | ApiError
 
 function sourceFromJob(job: JobStatusResponse): CrawlSource {
-  return job.job_type === 'medium_crawl' ? 'medium' : 'wikipedia'
+  if (job.job_type === 'medium_crawl') return 'medium'
+  if (job.job_type === 'rss_crawl') return 'rss'
+  return 'wikipedia'
 }
 
 function normalizeWikipediaItems(items: Awaited<ReturnType<typeof listWikipediaCrawlItems>>['items']): CrawlItem[] {
@@ -100,10 +104,12 @@ export function CrawlsPage() {
 
     const itemRequest = currentSource === 'medium'
       ? listMediumCrawlItems(activeJobId)
-      : listWikipediaCrawlItems(activeJobId).then((response) => ({
+      : currentSource === 'rss'
+        ? listRssCrawlItems(activeJobId)
+        : listWikipediaCrawlItems(activeJobId).then((response) => ({
         ...response,
         items: normalizeWikipediaItems(response.items),
-      }))
+          }))
 
     itemRequest
       .then((response) => {
@@ -140,11 +146,17 @@ export function CrawlsPage() {
           max_articles: values.max_articles,
           max_depth: values.max_depth,
         })
-        : await submitWikipediaCrawl({
-          category: values.category,
-          max_articles: values.max_articles,
-          max_depth: values.max_depth,
-        })
+        : values.source === 'rss'
+          ? await submitRssCrawl({
+            feed_url: values.feed_url,
+            max_articles: values.max_articles,
+            max_depth: values.max_depth,
+          })
+          : await submitWikipediaCrawl({
+            category: values.category,
+            max_articles: values.max_articles,
+            max_depth: values.max_depth,
+          })
       writeLastCrawlJobId(accepted.job_id)
       setAcceptedJobId(accepted.job_id)
       setActiveJobId(accepted.job_id)

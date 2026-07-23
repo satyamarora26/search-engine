@@ -4,7 +4,9 @@ import {
   getHealth,
   searchDocuments,
   listMediumCrawlItems,
+  listRssCrawlItems,
   submitMediumCrawl,
+  submitRssCrawl,
   submitWikipediaCrawl,
 } from './client'
 
@@ -97,6 +99,47 @@ describe('API client', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       '/api/v1/crawls/medium/medium%2Fjob/items?limit=25&offset=5',
+      expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
+    )
+  })
+
+  it('submits an RSS crawl and requests its generic item outcomes', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(response({
+        job_id: 'rss-job',
+        status: 'PENDING',
+        status_url: '/api/v1/jobs/rss-job',
+      }))
+      .mockResolvedValueOnce(response({
+        job_id: 'rss-job',
+        total_results: 1,
+        limit: 25,
+        offset: 5,
+        items: [],
+      }))
+
+    await submitRssCrawl({
+      feed_url: 'https://example.com/feed.xml',
+      max_articles: 25,
+      max_depth: 0,
+    })
+    await listRssCrawlItems('rss/job', 25, 5)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/crawls/rss',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          feed_url: 'https://example.com/feed.xml',
+          max_articles: 25,
+          max_depth: 0,
+        }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/crawls/rss/rss%2Fjob/items?limit=25&offset=5',
       expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
     )
   })

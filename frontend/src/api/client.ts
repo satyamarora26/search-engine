@@ -171,6 +171,31 @@ export function listMediumCrawlItems(
   )
 }
 
+export function submitRssCrawl(input: {
+  feed_url: string
+  max_articles: number
+  max_depth: 0
+}): Promise<AcceptedJob> {
+  return requestJson<AcceptedJob>('/api/v1/crawls/rss', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function listRssCrawlItems(
+  jobId: string,
+  limit = 100,
+  offset = 0,
+): Promise<CrawlItemListResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  })
+  return requestJson<CrawlItemListResponse>(
+    `/api/v1/crawls/rss/${encodeURIComponent(jobId)}/items?${params}`,
+  )
+}
+
 export function listDocuments(
   limit = 20,
   offset = 0,

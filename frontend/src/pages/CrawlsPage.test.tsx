@@ -6,8 +6,10 @@ import {
   ApiError,
   getJobStatus,
   listMediumCrawlItems,
+  listRssCrawlItems,
   listWikipediaCrawlItems,
   submitMediumCrawl,
+  submitRssCrawl,
   submitWikipediaCrawl,
 } from '../api/client'
 import type {
@@ -24,8 +26,10 @@ vi.mock('../api/client', async (importOriginal) => {
     ...actual,
     getJobStatus: vi.fn(),
     listMediumCrawlItems: vi.fn(),
+    listRssCrawlItems: vi.fn(),
     listWikipediaCrawlItems: vi.fn(),
     submitMediumCrawl: vi.fn(),
+    submitRssCrawl: vi.fn(),
     submitWikipediaCrawl: vi.fn(),
   }
 })
@@ -117,6 +121,34 @@ const mediumItems: CrawlItemListResponse = {
       fetch_status: 'fetched',
       ingestion_status: 'imported',
       document_id: 91,
+      error: null,
+    },
+  ],
+}
+
+const rssTerminalJob: JobStatusResponse = {
+  ...terminalJob,
+  job_type: 'rss_crawl',
+  progress: {
+    ...terminalJob.progress,
+    message: 'RSS crawl completed',
+  },
+}
+
+const rssItems: CrawlItemListResponse = {
+  job_id: 'job-123',
+  total_results: 1,
+  limit: 100,
+  offset: 0,
+  items: [
+    {
+      position: 0,
+      source_item_id: 'rss-article-1',
+      title: 'A feed article',
+      url: 'https://example.com/articles/search',
+      fetch_status: 'fetched',
+      ingestion_status: 'imported',
+      document_id: 92,
       error: null,
     },
   ],
@@ -236,6 +268,28 @@ describe('CrawlsPage', () => {
     expect(await screen.findByText('Medium crawl completed')).toBeVisible()
     expect(screen.getByText('Practical Search Ranking')).toBeVisible()
     expect(listMediumCrawlItems).toHaveBeenCalledWith('job-123')
+    expect(listWikipediaCrawlItems).not.toHaveBeenCalled()
+  })
+
+  it('submits and monitors an RSS crawl through the shared item view', async () => {
+    vi.mocked(submitRssCrawl).mockResolvedValue(acceptedJob)
+    vi.mocked(getJobStatus).mockResolvedValue(rssTerminalJob)
+    vi.mocked(listRssCrawlItems).mockResolvedValue(rssItems)
+    render(<CrawlsPage />)
+
+    fireEvent.change(screen.getByLabelText('Crawl source'), { target: { value: 'rss' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Start crawl' }))
+    await flushAsyncWork()
+
+    expect(submitRssCrawl).toHaveBeenCalledWith({
+      feed_url: 'https://feeds.bbci.co.uk/news/rss.xml',
+      max_articles: 100,
+      max_depth: 0,
+    })
+    expect(submitWikipediaCrawl).not.toHaveBeenCalled()
+    expect(await screen.findByText('RSS crawl completed')).toBeVisible()
+    expect(screen.getByText('A feed article')).toBeVisible()
+    expect(listRssCrawlItems).toHaveBeenCalledWith('job-123')
     expect(listWikipediaCrawlItems).not.toHaveBeenCalled()
   })
 
