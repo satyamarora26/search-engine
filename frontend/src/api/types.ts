@@ -1,5 +1,12 @@
 export type SearchRanking = 'bm25' | 'tfidf'
 export type SearchScope = 'all' | 'title' | 'content'
+
+export interface SearchFilters {
+  source: string
+  createdFrom: string
+  createdTo: string
+}
+
 export type JobStatus = 'PENDING' | 'STARTED' | 'SUCCESS' | 'FAILURE'
 export type HealthStatus = 'healthy' | 'degraded'
 export type HealthCheckStatus = 'healthy' | 'unhealthy'
@@ -32,6 +39,9 @@ export interface SearchResponse {
   offset: number
   scope: SearchScope
   exact_phrase: boolean
+  source: string | null
+  created_from: string | null
+  created_to: string | null
   results: SearchResult[]
 }
 

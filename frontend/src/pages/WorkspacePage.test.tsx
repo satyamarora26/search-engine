@@ -26,6 +26,9 @@ const resultResponse: SearchResponse = {
   offset: 0,
   scope: 'all',
   exact_phrase: false,
+  source: null,
+  created_from: null,
+  created_to: null,
   results: [{
     document_id: 7,
     title: 'Information retrieval',
@@ -123,6 +126,52 @@ describe('WorkspacePage', () => {
       'bm25',
       10,
       { offset: 0, scope: 'content', exact_phrase: true },
+    )
+  })
+
+  it('submits source and ingestion-date filters', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue(resultResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'information retrieval')
+    await user.type(screen.getByLabelText('Source or domain'), 'wikipedia.org')
+    await user.type(screen.getByLabelText('Created from'), '2026-07-01')
+    await user.type(screen.getByLabelText('Created to'), '2026-07-23')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(searchDocuments).toHaveBeenCalledWith(
+      'information retrieval',
+      'bm25',
+      10,
+      {
+        offset: 0,
+        scope: 'all',
+        exact_phrase: false,
+        source: 'wikipedia.org',
+        created_from: '2026-07-01',
+        created_to: '2026-07-23',
+      },
+    )
+  })
+
+  it('clears local metadata controls before the next search', async () => {
+    vi.mocked(searchDocuments).mockResolvedValue(resultResponse)
+    const user = userEvent.setup()
+    render(<WorkspacePage />)
+
+    await user.type(screen.getByLabelText('Search documents'), 'ranking')
+    await user.type(screen.getByLabelText('Source or domain'), 'wikipedia.org')
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    expect(screen.getByLabelText('Source or domain')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(searchDocuments).toHaveBeenLastCalledWith(
+      'ranking',
+      'bm25',
+      10,
+      { offset: 0, scope: 'all', exact_phrase: false },
     )
   })
 

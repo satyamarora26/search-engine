@@ -67,6 +67,9 @@ export function searchDocuments(
     offset?: number
     scope?: SearchScope
     exact_phrase?: boolean
+    source?: string
+    created_from?: string
+    created_to?: string
   } = {},
 ): Promise<SearchResponse> {
   const params = new URLSearchParams({
@@ -82,6 +85,18 @@ export function searchDocuments(
   }
   if (options.exact_phrase) {
     params.set('exact_phrase', 'true')
+  }
+  const source = options.source?.trim()
+  if (source) {
+    params.set('source', source)
+  }
+  const createdFrom = options.created_from?.trim()
+  if (createdFrom) {
+    params.set('created_from', createdFrom)
+  }
+  const createdTo = options.created_to?.trim()
+  if (createdTo) {
+    params.set('created_to', createdTo)
   }
   return requestJson<SearchResponse>(`/api/v1/search?${params}`)
 }

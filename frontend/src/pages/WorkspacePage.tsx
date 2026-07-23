@@ -2,7 +2,12 @@ import { Database, Sparkles } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { ApiError, explainSearch, searchDocuments } from '../api/client'
-import type { SearchRanking, SearchResponse, SearchScope } from '../api/types'
+import type {
+  SearchFilters,
+  SearchRanking,
+  SearchResponse,
+  SearchScope,
+} from '../api/types'
 import { CrawlStatusPanel } from '../components/CrawlStatusPanel'
 import { Panel } from '../components/Panel'
 import { SearchForm } from '../components/SearchForm'
@@ -11,12 +16,30 @@ import { SearchResults } from '../components/SearchResults'
 
 const PAGE_SIZE = 10
 
+function toSearchOptions(filters: SearchFilters) {
+  const options: {
+    source?: string
+    created_from?: string
+    created_to?: string
+  } = {}
+  const source = filters.source.trim()
+  if (source) options.source = source
+  if (filters.createdFrom) options.created_from = filters.createdFrom
+  if (filters.createdTo) options.created_to = filters.createdTo
+  return options
+}
+
 export function WorkspacePage() {
   const [response, setResponse] = useState<SearchResponse | null>(null)
   const [query, setQuery] = useState('')
   const [ranking, setRanking] = useState<SearchRanking>('bm25')
   const [scope, setScope] = useState<SearchScope>('all')
   const [exactPhrase, setExactPhrase] = useState(false)
+  const [filters, setFilters] = useState<SearchFilters>({
+    source: '',
+    createdFrom: '',
+    createdTo: '',
+  })
   const [offset, setOffset] = useState(0)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -30,6 +53,7 @@ export function WorkspacePage() {
     nextRanking: SearchRanking,
     nextScope: SearchScope = scope,
     nextExactPhrase = exactPhrase,
+    nextFilters: SearchFilters = filters,
     nextOffset = 0,
   ) {
     explanationContextRef.current += 1
@@ -39,6 +63,7 @@ export function WorkspacePage() {
     setRanking(nextRanking)
     setScope(nextScope)
     setExactPhrase(nextExactPhrase)
+    setFilters(nextFilters)
     setOffset(nextOffset)
     setHasSubmitted(true)
     setIsLoading(true)
@@ -49,6 +74,7 @@ export function WorkspacePage() {
           offset: nextOffset,
           scope: nextScope,
           exact_phrase: nextExactPhrase,
+          ...toSearchOptions(nextFilters),
         }),
       )
     } catch (requestError) {
@@ -125,6 +151,7 @@ export function WorkspacePage() {
               initialQuery={query}
               initialRanking={ranking}
               initialScope={scope}
+              initialFilters={filters}
               isLoading={isLoading}
               onSubmit={runSearch}
             />
@@ -135,7 +162,7 @@ export function WorkspacePage() {
                 <button
                   className="button button-quiet"
                   type="button"
-                  onClick={() => void runSearch(query, ranking, scope, exactPhrase, offset)}
+                  onClick={() => void runSearch(query, ranking, scope, exactPhrase, filters, offset)}
                 >
                   Retry search
                 </button>
@@ -148,7 +175,7 @@ export function WorkspacePage() {
               isLoading={isLoading}
               onPageChange={(nextOffset) => {
                 if (query) {
-                  void runSearch(query, ranking, scope, exactPhrase, nextOffset)
+                  void runSearch(query, ranking, scope, exactPhrase, filters, nextOffset)
                 }
               }}
               onRetryExplanation={(documentId) => void loadExplanation(documentId)}

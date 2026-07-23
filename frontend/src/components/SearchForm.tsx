@@ -1,19 +1,21 @@
-import { Search } from 'lucide-react'
+import { RotateCcw, Search } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 
-import type { SearchRanking, SearchScope } from '../api/types'
+import type { SearchFilters, SearchRanking, SearchScope } from '../api/types'
 
 type SearchFormProps = {
   initialQuery?: string
   initialRanking?: SearchRanking
   initialScope?: SearchScope
   initialExactPhrase?: boolean
+  initialFilters?: SearchFilters
   isLoading: boolean
   onSubmit: (
     query: string,
     ranking: SearchRanking,
     scope: SearchScope,
     exactPhrase: boolean,
+    filters: SearchFilters,
   ) => void
 }
 
@@ -22,6 +24,7 @@ export function SearchForm({
   initialRanking = 'bm25',
   initialScope = 'all',
   initialExactPhrase = false,
+  initialFilters = { source: '', createdFrom: '', createdTo: '' },
   isLoading,
   onSubmit,
 }: SearchFormProps) {
@@ -29,6 +32,9 @@ export function SearchForm({
   const [ranking, setRanking] = useState<SearchRanking>(initialRanking)
   const [scope, setScope] = useState<SearchScope>(initialScope)
   const [exactPhrase, setExactPhrase] = useState(initialExactPhrase)
+  const [source, setSource] = useState(initialFilters.source)
+  const [createdFrom, setCreatedFrom] = useState(initialFilters.createdFrom)
+  const [createdTo, setCreatedTo] = useState(initialFilters.createdTo)
   const [validationError, setValidationError] = useState<string | null>(null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -39,7 +45,17 @@ export function SearchForm({
       return
     }
     setValidationError(null)
-    onSubmit(trimmedQuery, ranking, scope, exactPhrase)
+    onSubmit(trimmedQuery, ranking, scope, exactPhrase, {
+      source: source.trim(),
+      createdFrom,
+      createdTo,
+    })
+  }
+
+  function handleClearFilters() {
+    setSource('')
+    setCreatedFrom('')
+    setCreatedTo('')
   }
 
   return (
@@ -55,6 +71,46 @@ export function SearchForm({
           value={query}
         />
         <span className="search-shortcut" aria-hidden="true">⌘K</span>
+      </div>
+      <div className="search-filter-grid">
+        <label className="search-filter-field" htmlFor="search-source">
+          <span>Source or domain</span>
+          <input
+            id="search-source"
+            list="source-suggestions"
+            onChange={(event) => setSource(event.target.value)}
+            placeholder="wikipedia.org"
+            type="text"
+            value={source}
+          />
+          <datalist id="source-suggestions">
+            <option value="wikipedia.org" />
+          </datalist>
+        </label>
+        <label className="search-filter-field" htmlFor="created-from">
+          <span>Created from</span>
+          <input
+            id="created-from"
+            onChange={(event) => setCreatedFrom(event.target.value)}
+            type="date"
+            value={createdFrom}
+          />
+        </label>
+        <label className="search-filter-field" htmlFor="created-to">
+          <span>Created to</span>
+          <input
+            id="created-to"
+            onChange={(event) => setCreatedTo(event.target.value)}
+            type="date"
+            value={createdTo}
+          />
+        </label>
+        <div className="search-filter-actions">
+          <button className="button button-quiet" onClick={handleClearFilters} type="button">
+            <RotateCcw size={15} aria-hidden="true" />
+            <span>Clear filters</span>
+          </button>
+        </div>
       </div>
       <div className="search-form-actions">
         <div className="search-form-options">
