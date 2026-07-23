@@ -107,6 +107,25 @@ export interface WikipediaCrawlItemListResponse {
   items: WikipediaCrawlItem[]
 }
 
+export interface CrawlItem {
+  position: number
+  source_item_id: string | null
+  title: string | null
+  url: string
+  fetch_status: string
+  ingestion_status: string | null
+  document_id: number | null
+  error: string | null
+}
+
+export interface CrawlItemListResponse {
+  job_id: string
+  total_results: number
+  limit: number
+  offset: number
+  items: CrawlItem[]
+}
+
 export interface Document {
   id: number
   title: string

@@ -2,9 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { ApiError, getJobStatus, listWikipediaCrawlItems, submitWikipediaCrawl } from '../api/client'
+import {
+  ApiError,
+  getJobStatus,
+  listMediumCrawlItems,
+  listWikipediaCrawlItems,
+  submitMediumCrawl,
+  submitWikipediaCrawl,
+} from '../api/client'
 import type {
   AcceptedJob,
+  CrawlItemListResponse,
   JobStatusResponse,
   WikipediaCrawlItemListResponse,
 } from '../api/types'
@@ -15,7 +23,9 @@ vi.mock('../api/client', async (importOriginal) => {
   return {
     ...actual,
     getJobStatus: vi.fn(),
+    listMediumCrawlItems: vi.fn(),
     listWikipediaCrawlItems: vi.fn(),
+    submitMediumCrawl: vi.fn(),
     submitWikipediaCrawl: vi.fn(),
   }
 })
@@ -80,6 +90,34 @@ const crawlItems: WikipediaCrawlItemListResponse = {
       ingestion_status: null,
       document_id: null,
       error: 'wikipedia_not_found',
+    },
+  ],
+}
+
+const mediumTerminalJob: JobStatusResponse = {
+  ...terminalJob,
+  job_type: 'medium_crawl',
+  progress: {
+    ...terminalJob.progress,
+    message: 'Medium crawl completed',
+  },
+}
+
+const mediumItems: CrawlItemListResponse = {
+  job_id: 'job-123',
+  total_results: 1,
+  limit: 100,
+  offset: 0,
+  items: [
+    {
+      position: 0,
+      source_item_id: 'medium-article-1',
+      title: 'Practical Search Ranking',
+      url: 'https://medium.com/towards-data-science/practical-search-ranking',
+      fetch_status: 'fetched',
+      ingestion_status: 'imported',
+      document_id: 91,
+      error: null,
     },
   ],
 }
@@ -177,6 +215,28 @@ describe('CrawlsPage', () => {
     expect(screen.getByText('wikipedia_not_found')).toBeVisible()
     expect(getJobStatus).toHaveBeenCalledTimes(2)
     expect(listWikipediaCrawlItems).toHaveBeenCalledWith('job-123')
+  })
+
+  it('submits and monitors a Medium crawl through the shared item view', async () => {
+    vi.mocked(submitMediumCrawl).mockResolvedValue(acceptedJob)
+    vi.mocked(getJobStatus).mockResolvedValue(mediumTerminalJob)
+    vi.mocked(listMediumCrawlItems).mockResolvedValue(mediumItems)
+    render(<CrawlsPage />)
+
+    fireEvent.change(screen.getByLabelText('Crawl source'), { target: { value: 'medium' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Start crawl' }))
+    await flushAsyncWork()
+
+    expect(submitMediumCrawl).toHaveBeenCalledWith({
+      publication_url: 'https://medium.com/towards-data-science',
+      max_articles: 100,
+      max_depth: 0,
+    })
+    expect(submitWikipediaCrawl).not.toHaveBeenCalled()
+    expect(await screen.findByText('Medium crawl completed')).toBeVisible()
+    expect(screen.getByText('Practical Search Ranking')).toBeVisible()
+    expect(listMediumCrawlItems).toHaveBeenCalledWith('job-123')
+    expect(listWikipediaCrawlItems).not.toHaveBeenCalled()
   })
 
   it('stops polling after terminal failure and shows the safe error', async () => {

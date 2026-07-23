@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getHealth,
   searchDocuments,
+  listMediumCrawlItems,
+  submitMediumCrawl,
   submitWikipediaCrawl,
 } from './client'
 
@@ -56,6 +58,47 @@ describe('API client', () => {
       status: 409,
       message: 'An active index job already exists.',
     })
+  })
+
+  it('submits a Medium crawl and requests its generic item outcomes', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(response({
+        job_id: 'medium-job',
+        status: 'PENDING',
+        status_url: '/api/v1/jobs/medium-job',
+      }))
+      .mockResolvedValueOnce(response({
+        job_id: 'medium-job',
+        total_results: 1,
+        limit: 25,
+        offset: 5,
+        items: [],
+      }))
+
+    await submitMediumCrawl({
+      publication_url: 'https://medium.com/towards-data-science',
+      max_articles: 25,
+      max_depth: 0,
+    })
+    await listMediumCrawlItems('medium/job', 25, 5)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/crawls/medium',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          publication_url: 'https://medium.com/towards-data-science',
+          max_articles: 25,
+          max_depth: 0,
+        }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/crawls/medium/medium%2Fjob/items?limit=25&offset=5',
+      expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
+    )
   })
 
   it('requests the current service health status', async () => {

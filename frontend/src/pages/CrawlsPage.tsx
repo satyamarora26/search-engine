@@ -4,19 +4,38 @@ import { useEffect, useState } from 'react'
 import {
   ApiError,
   getJobStatus,
+  listMediumCrawlItems,
   listWikipediaCrawlItems,
+  submitMediumCrawl,
   submitWikipediaCrawl,
 } from '../api/client'
-import type { JobStatusResponse, WikipediaCrawlItem } from '../api/types'
+import type { CrawlItem, JobStatusResponse } from '../api/types'
 import { readLastCrawlJobId, writeLastCrawlJobId } from '../state/localPreferences'
 import { CrawlItemsTable } from '../components/CrawlItemsTable'
 import { JobProgress } from '../components/JobProgress'
 import { Panel } from '../components/Panel'
-import { WikipediaCrawlForm, type CrawlFormValues } from '../components/WikipediaCrawlForm'
+import { CrawlForm, type CrawlFormValues, type CrawlSource } from '../components/WikipediaCrawlForm'
 
 const POLL_DELAY_MS = 1500
 
 type CrawlError = Error | ApiError
+
+function sourceFromJob(job: JobStatusResponse): CrawlSource {
+  return job.job_type === 'medium_crawl' ? 'medium' : 'wikipedia'
+}
+
+function normalizeWikipediaItems(items: Awaited<ReturnType<typeof listWikipediaCrawlItems>>['items']): CrawlItem[] {
+  return items.map((item) => ({
+    position: item.position,
+    source_item_id: String(item.wikipedia_page_id),
+    title: item.title,
+    url: item.url,
+    fetch_status: item.fetch_status,
+    ingestion_status: item.ingestion_status,
+    document_id: item.document_id,
+    error: item.error,
+  }))
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'The crawl request could not be completed.'
@@ -33,7 +52,7 @@ export function CrawlsPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(readLastCrawlJobId)
   const [acceptedJobId, setAcceptedJobId] = useState<string | null>(null)
   const [job, setJob] = useState<JobStatusResponse | null>(null)
-  const [items, setItems] = useState<WikipediaCrawlItem[] | null>(null)
+  const [items, setItems] = useState<CrawlItem[] | null>(null)
   const [itemTotal, setItemTotal] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingStatus, setIsLoadingStatus] = useState(Boolean(activeJobId))
@@ -77,8 +96,16 @@ export function CrawlsPage() {
     let cancelled = false
     setIsLoadingItems(true)
     setItemsError(null)
+    const currentSource = sourceFromJob(job)
 
-    listWikipediaCrawlItems(activeJobId)
+    const itemRequest = currentSource === 'medium'
+      ? listMediumCrawlItems(activeJobId)
+      : listWikipediaCrawlItems(activeJobId).then((response) => ({
+        ...response,
+        items: normalizeWikipediaItems(response.items),
+      }))
+
+    itemRequest
       .then((response) => {
         if (cancelled) return
         setItems(response.items)
@@ -107,7 +134,17 @@ export function CrawlsPage() {
     setAcceptedJobId(null)
 
     try {
-      const accepted = await submitWikipediaCrawl(values)
+      const accepted = values.source === 'medium'
+        ? await submitMediumCrawl({
+          publication_url: values.publication_url,
+          max_articles: values.max_articles,
+          max_depth: values.max_depth,
+        })
+        : await submitWikipediaCrawl({
+          category: values.category,
+          max_articles: values.max_articles,
+          max_depth: values.max_depth,
+        })
       writeLastCrawlJobId(accepted.job_id)
       setAcceptedJobId(accepted.job_id)
       setActiveJobId(accepted.job_id)
@@ -134,15 +171,15 @@ export function CrawlsPage() {
   return (
     <>
       <section className="page-intro" aria-labelledby="crawls-title">
-        <p className="page-eyebrow">Wikipedia ingestion</p>
+        <p className="page-eyebrow">Multi-source ingestion</p>
         <h1 id="crawls-title">Bring new knowledge in.</h1>
         <p className="page-copy">Start a bounded crawl and watch every page move through discovery, fetching, and indexing.</p>
       </section>
 
       <div className="crawls-grid">
         <div className="crawls-primary">
-          <Panel eyebrow="New ingestion job" title="Start a Wikipedia crawl">
-            <WikipediaCrawlForm isSubmitting={isSubmitting} onSubmit={handleSubmit} />
+          <Panel eyebrow="New ingestion job" title="Start a crawl">
+            <CrawlForm isSubmitting={isSubmitting} onSubmit={handleSubmit} />
           </Panel>
 
           {submitError && (
@@ -168,7 +205,7 @@ export function CrawlsPage() {
           )}
 
           {job?.ready && (
-            <Panel className="crawl-items-panel" eyebrow="Page outcomes" title="What the worker found">
+            <Panel className="crawl-items-panel" eyebrow="Item outcomes" title="What the worker found">
               <CrawlItemsTable error={itemsError} isLoading={isLoadingItems} items={items} total={itemTotal} />
             </Panel>
           )}
@@ -177,9 +214,9 @@ export function CrawlsPage() {
         <aside className="crawls-secondary">
           <Panel className="crawl-notes-panel" eyebrow="How it works" title="A bounded pipeline">
             <ol className="crawl-steps">
-              <li><strong>Discover</strong><span>Walk categories up to the depth you set.</span></li>
+              <li><strong>Discover</strong><span>Find bounded source items through the source adapter.</span></li>
               <li><strong>Fetch</strong><span>Retrieve article content with retry-safe workers.</span></li>
-              <li><strong>Index</strong><span>Clean pages enter the shared search corpus.</span></li>
+              <li><strong>Index</strong><span>Clean documents enter the shared search corpus.</span></li>
             </ol>
           </Panel>
           <p className="crawl-footnote">Only one index-changing job runs at a time. Existing crawl activity stays attached to this browser.</p>

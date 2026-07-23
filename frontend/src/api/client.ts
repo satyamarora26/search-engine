@@ -8,6 +8,7 @@ import type {
   SearchRanking,
   SearchResponse,
   SearchScope,
+  CrawlItemListResponse,
   WikipediaCrawlItemListResponse,
 } from './types'
 
@@ -142,6 +143,31 @@ export function listWikipediaCrawlItems(
   })
   return requestJson<WikipediaCrawlItemListResponse>(
     `/api/v1/crawls/wikipedia/${encodeURIComponent(jobId)}/items?${params}`,
+  )
+}
+
+export function submitMediumCrawl(input: {
+  publication_url: string
+  max_articles: number
+  max_depth: 0
+}): Promise<AcceptedJob> {
+  return requestJson<AcceptedJob>('/api/v1/crawls/medium', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function listMediumCrawlItems(
+  jobId: string,
+  limit = 100,
+  offset = 0,
+): Promise<CrawlItemListResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  })
+  return requestJson<CrawlItemListResponse>(
+    `/api/v1/crawls/medium/${encodeURIComponent(jobId)}/items?${params}`,
   )
 }
 
