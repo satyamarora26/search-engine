@@ -21,25 +21,41 @@ class MediumHttpClient:
         self,
         settings: Settings,
         *,
+        error_prefix: str = "medium",
+        user_agent: str | None = None,
+        concurrency: int | None = None,
+        requests_per_second: float | None = None,
+        request_timeout_seconds: float | None = None,
+        max_response_bytes: int | None = None,
+        fetch_attempts: int | None = None,
+        discovery_attempts: int | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         monotonic: Callable[[], float] = time.monotonic,
         jitter: Callable[[float, float], float] = random.uniform,
     ) -> None:
         self.settings = settings
+        self.error_prefix = error_prefix
+        self.user_agent = user_agent or settings.medium_user_agent
+        self.concurrency = concurrency or settings.medium_concurrency
+        self.requests_per_second = requests_per_second or settings.medium_requests_per_second
+        self.request_timeout_seconds = request_timeout_seconds or settings.medium_request_timeout_seconds
+        self.max_response_bytes = max_response_bytes or settings.medium_max_response_bytes
+        self.fetch_attempts = fetch_attempts or settings.medium_fetch_attempts
+        self.discovery_attempts = discovery_attempts or settings.medium_discovery_attempts
         self._sleep = sleep
         self._jitter = jitter
         self._robots: dict[tuple[str, str, int | None], robotparser.RobotFileParser] = {}
         self._rate_limiter = AsyncRequestRateLimiter(
-            settings.medium_requests_per_second,
+            self.requests_per_second,
             sleep=sleep,
             monotonic=monotonic,
         )
-        self._semaphore = asyncio.Semaphore(settings.medium_concurrency)
+        self._semaphore = asyncio.Semaphore(self.concurrency)
         self._client = httpx.AsyncClient(
             follow_redirects=False,
-            headers={"User-Agent": settings.medium_user_agent},
-            timeout=httpx.Timeout(settings.medium_request_timeout_seconds),
+            headers={"User-Agent": self.user_agent},
+            timeout=httpx.Timeout(self.request_timeout_seconds),
             transport=transport,
         )
 
@@ -56,10 +72,10 @@ class MediumHttpClient:
         target = httpx.URL(url)
         await self._ensure_robots(target)
         parser = self._robots[self._origin(target)]
-        if not parser.can_fetch(self.settings.medium_user_agent, str(target)):
-            raise CrawlerPolicyError("medium_robots_denied")
+        if not parser.can_fetch(self.user_agent, str(target)):
+            raise CrawlerPolicyError(f"{self.error_prefix}_robots_denied")
 
-        for attempt in range(1, self.settings.medium_fetch_attempts + 1):
+        for attempt in range(1, self.fetch_attempts + 1):
             try:
                 return await self._perform_attempt(
                     target,
@@ -67,16 +83,16 @@ class MediumHttpClient:
                     attempt=attempt,
                 )
             except CrawlerTransientError as error:
-                if attempt == self.settings.medium_fetch_attempts:
+                if attempt == self.fetch_attempts:
                     raise CrawlerTransientError(
                         error.code,
                         attempts=attempt,
                     ) from None
                 await self._sleep(self._retry_delay(attempt))
             except httpx.RequestError:
-                if attempt == self.settings.medium_fetch_attempts:
+                if attempt == self.fetch_attempts:
                     raise CrawlerTransientError(
-                        "medium_request_failed",
+                        f"{self.error_prefix}_request_failed",
                         attempts=attempt,
                     ) from None
                 await self._sleep(self._retry_delay(attempt))
@@ -93,7 +109,7 @@ class MediumHttpClient:
             robots_url += f":{target.port}"
         robots_url += "/robots.txt"
 
-        for attempt in range(1, self.settings.medium_discovery_attempts + 1):
+        for attempt in range(1, self.discovery_attempts + 1):
             try:
                 await self._rate_limiter.wait()
                 async with self._semaphore:
@@ -106,27 +122,31 @@ class MediumHttpClient:
                     return
                 if 500 <= response.status_code <= 599:
                     raise CrawlerTransientError(
-                        "medium_robots_unavailable",
+                        f"{self.error_prefix}_robots_unavailable",
                         attempts=attempt,
                     )
                 if not 200 <= response.status_code <= 299:
-                    raise CrawlerPolicyError("medium_robots_unavailable")
+                    raise CrawlerPolicyError(
+                        f"{self.error_prefix}_robots_unavailable"
+                    )
                 body = response.content
-                if len(body) > self.settings.medium_max_response_bytes:
-                    raise CrawlerPolicyError("medium_robots_too_large")
+                if len(body) > self.max_response_bytes:
+                    raise CrawlerPolicyError(
+                        f"{self.error_prefix}_robots_too_large"
+                    )
                 parser = robotparser.RobotFileParser()
                 parser.set_url(robots_url)
                 parser.parse(body.decode("utf-8", errors="replace").splitlines())
                 self._robots[origin] = parser
                 return
             except CrawlerTransientError:
-                if attempt == self.settings.medium_discovery_attempts:
+                if attempt == self.discovery_attempts:
                     raise
                 await self._sleep(self._retry_delay(attempt))
             except httpx.RequestError:
-                if attempt == self.settings.medium_discovery_attempts:
+                if attempt == self.discovery_attempts:
                     raise CrawlerTransientError(
-                        "medium_robots_unavailable",
+                        f"{self.error_prefix}_robots_unavailable",
                         attempts=attempt,
                     ) from None
                 await self._sleep(self._retry_delay(attempt))
@@ -146,17 +166,17 @@ class MediumHttpClient:
                 status = response.status_code
                 if status == 429 or 500 <= status <= 599:
                     raise CrawlerTransientError(
-                        "medium_request_failed",
+                        f"{self.error_prefix}_request_failed",
                         attempts=attempt,
                     )
                 if status == 404:
                     raise CrawlerPermanentError(
-                        "medium_not_found",
+                        f"{self.error_prefix}_not_found",
                         attempts=attempt,
                     )
                 if 400 <= status <= 499 or not 200 <= status <= 299:
                     raise CrawlerPermanentError(
-                        "medium_request_rejected",
+                        f"{self.error_prefix}_request_rejected",
                         attempts=attempt,
                     )
                 content_type = response.headers.get("Content-Type", "")
@@ -165,7 +185,7 @@ class MediumHttpClient:
                     accepted_content_type,
                 ):
                     raise CrawlerPermanentError(
-                        "medium_invalid_content_type",
+                        f"{self.error_prefix}_invalid_content_type",
                         attempts=attempt,
                     )
                 body = await self._read_limited_body(response)
@@ -181,11 +201,13 @@ class MediumHttpClient:
     async def _read_limited_body(self, response: httpx.Response) -> bytes:
         body = bytearray()
         async for chunk in response.aiter_bytes():
-            if len(body) + len(chunk) > self.settings.medium_max_response_bytes:
-                raise CrawlerPermanentError("medium_response_too_large")
+            if len(body) + len(chunk) > self.max_response_bytes:
+                raise CrawlerPermanentError(
+                    f"{self.error_prefix}_response_too_large"
+                )
             body.extend(chunk)
         if not body:
-            raise CrawlerPermanentError("medium_empty_response")
+            raise CrawlerPermanentError(f"{self.error_prefix}_empty_response")
         return bytes(body)
 
     def _retry_delay(self, attempt: int) -> float:

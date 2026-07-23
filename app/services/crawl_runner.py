@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 import logging
 from typing import Any
 from uuid import UUID
@@ -8,6 +9,7 @@ from app.core.config import get_settings
 from app.models.job import (
     FAILURE_STATUS,
     MEDIUM_CRAWL_JOB,
+    RSS_CRAWL_JOB,
     PENDING_STATUS,
     STARTED_STATUS,
     SUCCESS_STATUS,
@@ -35,6 +37,37 @@ class CrawlCompletionError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class CrawlRunnerConfig:
+    job_type: str
+    display_name: str
+    item_label: str
+    error_prefix: str
+    max_response_bytes: int
+
+
+def medium_crawl_config() -> CrawlRunnerConfig:
+    settings = get_settings()
+    return CrawlRunnerConfig(
+        job_type=MEDIUM_CRAWL_JOB,
+        display_name="Medium",
+        item_label="article",
+        error_prefix="medium",
+        max_response_bytes=settings.medium_max_response_bytes,
+    )
+
+
+def rss_crawl_config() -> CrawlRunnerConfig:
+    settings = get_settings()
+    return CrawlRunnerConfig(
+        job_type=RSS_CRAWL_JOB,
+        display_name="RSS",
+        item_label="item",
+        error_prefix="rss",
+        max_response_bytes=settings.rss_max_response_bytes,
+    )
+
+
 class CrawlRunner:
     def __init__(
         self,
@@ -44,6 +77,7 @@ class CrawlRunner:
         adapter_resolver: Callable[[str], CrawlAdapter] = get_adapter,
         rebuild: Callable[[str], dict[str, Any]] = rebuild_search_index_snapshot,
         snapshot_store: RedisSearchIndexStore | None = None,
+        config: CrawlRunnerConfig | None = None,
     ) -> None:
         self.tracker = tracker or JobTracker()
         self.store = store or CrawlStore()
@@ -51,28 +85,37 @@ class CrawlRunner:
         self.adapter_resolver = adapter_resolver
         self.rebuild = rebuild
         self.snapshot_store = snapshot_store or create_redis_search_index_store()
+        self.config = config or medium_crawl_config()
 
     def run(self, job_id: UUID) -> dict[str, Any]:
         return asyncio.run(self._run(job_id))
 
     async def _run(self, job_id: UUID) -> dict[str, Any]:
         job = self.tracker.get_job(job_id)
-        if job is None or job.job_type != MEDIUM_CRAWL_JOB:
-            raise JobTransitionError("Medium crawl job is missing or invalid.")
+        if job is None or job.job_type != self.config.job_type:
+            raise JobTransitionError(
+                f"{self.config.display_name} crawl job is missing or invalid."
+            )
         if job.status == SUCCESS_STATUS:
             return dict(job.result or {})
         if job.status == FAILURE_STATUS:
-            raise JobTransitionError("Medium crawl job has already failed.")
+            raise JobTransitionError(
+                f"{self.config.display_name} crawl job has already failed."
+            )
         if job.status not in (PENDING_STATUS, STARTED_STATUS):
-            raise JobTransitionError("Medium crawl job has invalid status.")
+            raise JobTransitionError(
+                f"{self.config.display_name} crawl job has invalid status."
+            )
         if job.status == PENDING_STATUS:
             if not self.tracker.claim(
                 job_id,
                 progress_current=0,
                 progress_total=None,
-                progress_message="Discovering Medium articles",
+                progress_message=self._progress_message("Discovering"),
             ):
-                raise JobTransitionError("Medium crawl job could not be claimed.")
+                raise JobTransitionError(
+                    f"{self.config.display_name} crawl job could not be claimed."
+                )
 
         run = self._get_run(job_id)
         adapter = self.adapter_resolver(run.source_key)
@@ -80,7 +123,7 @@ class CrawlRunner:
         limits = CrawlLimits(
             max_articles=run.max_articles,
             max_depth=run.max_depth,
-            max_response_bytes=get_settings().medium_max_response_bytes,
+            max_response_bytes=self.config.max_response_bytes,
         )
 
         async with adapter:
@@ -93,21 +136,23 @@ class CrawlRunner:
                         job_id,
                         progress_current=counts.terminal,
                         progress_total=None,
-                        progress_message="Discovering Medium articles",
+                        progress_message=self._progress_message("Discovering"),
                     )
                 run = self._get_run(job_id)
                 self._log(job_id, "discovery", "completed")
 
             counts = self._get_counts(job_id)
             if counts.discovered == 0:
-                raise CrawlCompletionError("medium_crawl_no_articles")
+                raise CrawlCompletionError(
+                    f"{self.config.error_prefix}_crawl_no_articles"
+                )
 
             progress_total = counts.discovered + 1
             self.tracker.update_progress(
                 job_id,
                 progress_current=counts.terminal,
                 progress_total=progress_total,
-                progress_message="Fetching Medium articles",
+                progress_message=self._progress_message("Fetching"),
             )
             self._log(job_id, "fetch", "started")
             for item in self.store.list_pending_items(job_id):
@@ -126,11 +171,15 @@ class CrawlRunner:
                         error=error.code,
                     )
                 except Exception:
-                    logger.exception("Medium crawl item %s failed.", item.id)
+                    logger.exception(
+                        "%s crawl item %s failed.",
+                        self.config.display_name,
+                        item.id,
+                    )
                     self.store.fail_item(
                         item.id,
                         attempts=1,
-                        error="medium_item_failed",
+                        error=f"{self.config.error_prefix}_item_failed",
                     )
                 counts = self._get_counts(job_id)
                 self.tracker.update_progress(
@@ -138,20 +187,22 @@ class CrawlRunner:
                     progress_current=counts.terminal,
                     progress_total=progress_total,
                     progress_message=(
-                        f"Fetched article {counts.terminal} "
+                        f"Fetched {self.config.item_label} {counts.terminal} "
                         f"of {counts.discovered}"
                     ),
                 )
             counts = self._get_counts(job_id)
             if counts.fetched == 0:
-                raise CrawlCompletionError("medium_crawl_no_fetched_articles")
+                raise CrawlCompletionError(
+                    f"{self.config.error_prefix}_crawl_no_fetched_articles"
+                )
             self._log(job_id, "fetch", "completed")
 
         self.tracker.update_progress(
             job_id,
             progress_current=counts.terminal,
             progress_total=progress_total,
-            progress_message="Ingesting Medium articles",
+            progress_message=self._progress_message("Ingesting"),
         )
         for ingestion_item_id in self.store.list_pending_ingestion_ids(job_id):
             self.processor.process(ingestion_item_id)
@@ -161,14 +212,16 @@ class CrawlRunner:
                 progress_current=counts.terminal,
                 progress_total=progress_total,
                 progress_message=(
-                    f"Processed article {counts.terminal} "
+                    f"Processed {self.config.item_label} {counts.terminal} "
                     f"of {counts.discovered}"
                 ),
             )
 
         counts = self._get_counts(job_id)
         if counts.imported + counts.skipped == 0:
-            raise CrawlCompletionError("medium_crawl_no_usable_documents")
+            raise CrawlCompletionError(
+                f"{self.config.error_prefix}_crawl_no_usable_documents"
+            )
 
         if counts.imported:
             self.tracker.update_progress(
@@ -194,7 +247,7 @@ class CrawlRunner:
             job_id,
             result=result,
             progress_total=progress_total,
-            progress_message="Medium crawl completed",
+            progress_message=f"{self.config.display_name} crawl completed",
         )
         return result
 
@@ -202,13 +255,17 @@ class CrawlRunner:
         try:
             return self.store.get_run(job_id)
         except CrawlStateError as error:
-            raise JobTransitionError("Medium crawl state is missing or invalid.") from error
+            raise JobTransitionError(
+                f"{self.config.display_name} crawl state is missing or invalid."
+            ) from error
 
     def _get_counts(self, job_id: UUID) -> CrawlCounts:
         try:
             return self.store.get_counts(job_id)
         except CrawlStateError as error:
-            raise JobTransitionError("Medium crawl state is missing or invalid.") from error
+            raise JobTransitionError(
+                f"{self.config.display_name} crawl state is missing or invalid."
+            ) from error
 
     @staticmethod
     def _build_result(run, counts, index_rebuilt, index_version):
@@ -231,6 +288,9 @@ class CrawlRunner:
     @staticmethod
     def _log(job_id: UUID, phase: str, outcome: str) -> None:
         logger.info(
-            "medium_crawl_phase",
+            "crawl_phase",
             extra={"job_id": str(job_id), "phase": phase, "outcome": outcome},
         )
+
+    def _progress_message(self, phase: str) -> str:
+        return f"{phase} {self.config.display_name} {self.config.item_label}s"

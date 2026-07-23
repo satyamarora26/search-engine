@@ -3,6 +3,7 @@ import pytest
 from app.core.config import (
     DEFAULT_DATABASE_URL,
     DEFAULT_MEDIUM_USER_AGENT,
+    DEFAULT_RSS_USER_AGENT,
     DEFAULT_WIKIPEDIA_ACTION_API_URL,
     DEFAULT_WIKIPEDIA_REST_API_URL,
     DEFAULT_WIKIPEDIA_USER_AGENT,
@@ -80,6 +81,29 @@ def test_default_medium_settings_are_bounded_and_identifying(monkeypatch):
     assert settings.medium_discovery_attempts == 2
 
 
+def test_default_rss_settings_are_bounded_and_identifying(monkeypatch):
+    for name in (
+        "RSS_USER_AGENT",
+        "RSS_CONCURRENCY",
+        "RSS_REQUESTS_PER_SECOND",
+        "RSS_REQUEST_TIMEOUT_SECONDS",
+        "RSS_MAX_RESPONSE_BYTES",
+        "RSS_FETCH_ATTEMPTS",
+        "RSS_DISCOVERY_ATTEMPTS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    settings = get_settings()
+
+    assert settings.rss_user_agent == DEFAULT_RSS_USER_AGENT
+    assert settings.rss_concurrency == 4
+    assert settings.rss_requests_per_second == 1.0
+    assert settings.rss_request_timeout_seconds == 30.0
+    assert settings.rss_max_response_bytes == 10 * 1024 * 1024
+    assert settings.rss_fetch_attempts == 3
+    assert settings.rss_discovery_attempts == 2
+
+
 def test_medium_settings_accept_stripped_test_server_overrides(monkeypatch):
     monkeypatch.setenv(
         "MEDIUM_USER_AGENT",
@@ -101,6 +125,29 @@ def test_medium_settings_accept_stripped_test_server_overrides(monkeypatch):
     assert settings.medium_max_response_bytes == 4096
     assert settings.medium_fetch_attempts == 2
     assert settings.medium_discovery_attempts == 4
+
+
+def test_rss_settings_accept_stripped_test_server_overrides(monkeypatch):
+    monkeypatch.setenv(
+        "RSS_USER_AGENT",
+        "  CrawlerTest/1.0 (test@example.com)  ",
+    )
+    monkeypatch.setenv("RSS_CONCURRENCY", "2")
+    monkeypatch.setenv("RSS_REQUESTS_PER_SECOND", "5")
+    monkeypatch.setenv("RSS_REQUEST_TIMEOUT_SECONDS", "2.5")
+    monkeypatch.setenv("RSS_MAX_RESPONSE_BYTES", "4096")
+    monkeypatch.setenv("RSS_FETCH_ATTEMPTS", "2")
+    monkeypatch.setenv("RSS_DISCOVERY_ATTEMPTS", "4")
+
+    settings = get_settings()
+
+    assert settings.rss_user_agent == "CrawlerTest/1.0 (test@example.com)"
+    assert settings.rss_concurrency == 2
+    assert settings.rss_requests_per_second == 5.0
+    assert settings.rss_request_timeout_seconds == 2.5
+    assert settings.rss_max_response_bytes == 4096
+    assert settings.rss_fetch_attempts == 2
+    assert settings.rss_discovery_attempts == 4
 
 
 def test_wikipedia_settings_accept_stripped_test_server_overrides(monkeypatch):
@@ -167,6 +214,17 @@ def test_medium_settings_reject_blank_or_generic_user_agents(
 
 
 @pytest.mark.parametrize(
+    "user_agent",
+    ["", "   ", "python-httpx/0.28", "python-requests/2.32", "curl/8.0"],
+)
+def test_rss_settings_reject_blank_or_generic_user_agents(monkeypatch, user_agent):
+    monkeypatch.setenv("RSS_USER_AGENT", user_agent)
+
+    with pytest.raises(ValueError, match="RSS_USER_AGENT"):
+        get_settings()
+
+
+@pytest.mark.parametrize(
     ("name", "value"),
     [
         ("WIKIPEDIA_CONCURRENCY", "0"),
@@ -196,6 +254,24 @@ def test_wikipedia_settings_reject_nonpositive_limits(monkeypatch, name, value):
     ],
 )
 def test_medium_settings_reject_nonpositive_limits(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValueError, match=name):
+        get_settings()
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("RSS_CONCURRENCY", "0"),
+        ("RSS_REQUESTS_PER_SECOND", "-1"),
+        ("RSS_REQUEST_TIMEOUT_SECONDS", "0"),
+        ("RSS_MAX_RESPONSE_BYTES", "-10"),
+        ("RSS_FETCH_ATTEMPTS", "-1"),
+        ("RSS_DISCOVERY_ATTEMPTS", "0"),
+    ],
+)
+def test_rss_settings_reject_nonpositive_limits(monkeypatch, name, value):
     monkeypatch.setenv(name, value)
 
     with pytest.raises(ValueError, match=name):

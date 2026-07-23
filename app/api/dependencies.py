@@ -6,6 +6,7 @@ from app.services.bulk_ingestion import BulkIngestionService
 from app.services.jobs import JobService
 from app.services.wikipedia_crawls import WikipediaCrawlService
 from app.services.medium_crawls import MediumCrawlService
+from app.services.rss_crawls import RssCrawlService
 from app.workers.celery_app import celery_app
 from app.workers.search_tasks import rebuild_search_index_snapshot_task
 
@@ -35,3 +36,10 @@ def get_medium_crawl_service(
 ) -> MediumCrawlService:
     task = celery_app.signature("crawl.medium")
     return MediumCrawlService(session, task)
+
+
+def get_rss_crawl_service(
+    session: Session = Depends(get_db_session),
+) -> RssCrawlService:
+    task = celery_app.signature("crawl.rss")
+    return RssCrawlService(session, task)

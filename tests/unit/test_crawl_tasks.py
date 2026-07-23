@@ -7,10 +7,15 @@ from celery.exceptions import Ignore
 from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy.exc import OperationalError
 
-from app.models.job import MEDIUM_CRAWL_JOB, STARTED_STATUS
+from app.models.job import MEDIUM_CRAWL_JOB, RSS_CRAWL_JOB, STARTED_STATUS
 from app.services.advisory_locks import JobAlreadyRunningError
 from app.services.crawl_types import CrawlerTransientError
-from app.workers.crawl_tasks import crawl_medium_task, execute_medium_crawl_attempt
+from app.workers.crawl_tasks import (
+    crawl_medium_task,
+    crawl_rss_task,
+    execute_medium_crawl_attempt,
+    execute_rss_crawl_attempt,
+)
 
 JOB_ID = UUID("ed8bff1d-6986-47ad-bad6-dd802e677ccc")
 
@@ -34,12 +39,13 @@ class FakeRunner:
     def __init__(self):
         self.error = None
         self.calls = []
+        self.result = {"source": "medium"}
 
     def run(self, job_id):
         self.calls.append(job_id)
         if self.error:
             raise self.error
-        return {"source": "medium"}
+        return self.result
 
 
 class FakeLock:
@@ -101,6 +107,28 @@ def test_successful_medium_task_runs_under_advisory_lock():
     assert tracker.failure is None
 
 
+def test_successful_rss_task_uses_the_generic_execution_lifecycle():
+    context = FakeTaskContext()
+    runner = FakeRunner()
+    runner.result = {"source": "rss"}
+    lock = FakeLock()
+    tracker = FakeTracker()
+    tracker.job.job_type = RSS_CRAWL_JOB
+
+    result = execute_rss_crawl_attempt(
+        context,
+        JOB_ID,
+        runner_factory=lambda: runner,
+        lock_factory=lambda: lock,
+        tracker_factory=lambda: tracker,
+    )
+
+    assert result == {"source": "rss"}
+    assert runner.calls == [JOB_ID]
+    assert lock.calls == [JOB_ID]
+    assert tracker.failure is None
+
+
 def test_busy_lock_is_ignored_without_failure():
     context = FakeTaskContext()
     runner = FakeRunner()
@@ -154,6 +182,10 @@ def test_task_configuration_and_id_guard_are_durable():
     assert crawl_medium_task.acks_late is True
     assert crawl_medium_task.reject_on_worker_lost is True
     assert crawl_medium_task.max_retries == 3
+    assert crawl_rss_task.name == "crawl.rss"
+    assert crawl_rss_task.acks_late is True
+    assert crawl_rss_task.reject_on_worker_lost is True
+    assert crawl_rss_task.max_retries == 3
 
     with pytest.raises(RuntimeError, match="Celery task id does not match"):
         crawl_medium_task.apply(

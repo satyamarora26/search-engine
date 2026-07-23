@@ -17,6 +17,10 @@ DEFAULT_MEDIUM_USER_AGENT = (
     "SatyamSearchEngineMediumBot/1.0 "
     "(https://github.com/satyamarora26/search-engine)"
 )
+DEFAULT_RSS_USER_AGENT = (
+    "SatyamSearchEngineRssBot/1.0 "
+    "(https://github.com/satyamarora26/search-engine)"
+)
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,13 @@ class Settings:
     medium_max_response_bytes: int = 10 * 1024 * 1024
     medium_fetch_attempts: int = 3
     medium_discovery_attempts: int = 2
+    rss_user_agent: str = DEFAULT_RSS_USER_AGENT
+    rss_concurrency: int = 4
+    rss_requests_per_second: float = 1.0
+    rss_request_timeout_seconds: float = 30.0
+    rss_max_response_bytes: int = 10 * 1024 * 1024
+    rss_fetch_attempts: int = 3
+    rss_discovery_attempts: int = 2
 
 
 def _positive(name: str, value: int | float) -> int | float:
@@ -74,6 +85,18 @@ def _medium_user_agent() -> str:
         raise ValueError(
             "MEDIUM_USER_AGENT must identify the crawler project."
         )
+    return value
+
+
+def _rss_user_agent() -> str:
+    value = os.getenv(
+        "RSS_USER_AGENT",
+        DEFAULT_RSS_USER_AGENT,
+    ).strip()
+    if not value or value.casefold().startswith(
+        ("python-httpx", "python-requests", "curl")
+    ):
+        raise ValueError("RSS_USER_AGENT must identify the crawler project.")
     return value
 
 
@@ -166,6 +189,43 @@ def get_settings() -> Settings:
             _positive(
                 "MEDIUM_DISCOVERY_ATTEMPTS",
                 int(os.getenv("MEDIUM_DISCOVERY_ATTEMPTS", "2")),
+            )
+        ),
+        rss_user_agent=_rss_user_agent(),
+        rss_concurrency=int(
+            _positive(
+                "RSS_CONCURRENCY",
+                int(os.getenv("RSS_CONCURRENCY", "4")),
+            )
+        ),
+        rss_requests_per_second=float(
+            _positive(
+                "RSS_REQUESTS_PER_SECOND",
+                float(os.getenv("RSS_REQUESTS_PER_SECOND", "1")),
+            )
+        ),
+        rss_request_timeout_seconds=float(
+            _positive(
+                "RSS_REQUEST_TIMEOUT_SECONDS",
+                float(os.getenv("RSS_REQUEST_TIMEOUT_SECONDS", "30")),
+            )
+        ),
+        rss_max_response_bytes=int(
+            _positive(
+                "RSS_MAX_RESPONSE_BYTES",
+                int(os.getenv("RSS_MAX_RESPONSE_BYTES", "10485760")),
+            )
+        ),
+        rss_fetch_attempts=int(
+            _positive(
+                "RSS_FETCH_ATTEMPTS",
+                int(os.getenv("RSS_FETCH_ATTEMPTS", "3")),
+            )
+        ),
+        rss_discovery_attempts=int(
+            _positive(
+                "RSS_DISCOVERY_ATTEMPTS",
+                int(os.getenv("RSS_DISCOVERY_ATTEMPTS", "2")),
             )
         ),
     )
