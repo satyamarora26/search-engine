@@ -66,6 +66,13 @@ class DiscoveredItem:
 
 
 @dataclass(frozen=True)
+class CrawlItemSnapshot:
+    id: int
+    position: int
+    discovered_item: DiscoveredItem
+
+
+@dataclass(frozen=True)
 class NormalizedSeed:
     source_key: str
     canonical_url: str

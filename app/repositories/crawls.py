@@ -25,6 +25,7 @@ from app.models.ingestion_item import (
 )
 from app.services.crawl_types import (
     CrawlCounts,
+    CrawlItemSnapshot,
     CrawlItemView,
     CrawlRunSnapshot,
     DiscoveryCheckpoint,
@@ -123,6 +124,17 @@ class CrawlRepository:
         model = self.session.scalars(statement).one_or_none()
         return self._frontier_snapshot(model) if model is not None else None
 
+    def get_frontier_by_locator(
+        self,
+        job_id: UUID,
+        locator: str,
+    ) -> CrawlFrontier | None:
+        statement = select(CrawlFrontier).where(
+            CrawlFrontier.job_id == job_id,
+            CrawlFrontier.locator == locator,
+        )
+        return self.session.scalars(statement).one_or_none()
+
     def add_item(
         self,
         job_id: UUID,
@@ -159,21 +171,25 @@ class CrawlRepository:
         attempts: int,
         ingestion_item_id: int,
         fetched_at: datetime,
+        title: str | None = None,
     ) -> CrawlItem | None:
+        values: dict[str, Any] = {
+            "fetch_status": FETCHED_FETCH_STATUS,
+            "fetch_attempts": attempts,
+            "ingestion_item_id": ingestion_item_id,
+            "error": None,
+            "fetched_at": fetched_at,
+            "updated_at": func.now(),
+        }
+        if title is not None:
+            values["title"] = title
         statement = (
             update(CrawlItem)
             .where(
                 CrawlItem.id == item_id,
                 CrawlItem.fetch_status == PENDING_FETCH_STATUS,
             )
-            .values(
-                fetch_status=FETCHED_FETCH_STATUS,
-                fetch_attempts=attempts,
-                ingestion_item_id=ingestion_item_id,
-                error=None,
-                fetched_at=fetched_at,
-                updated_at=func.now(),
-            )
+            .values(**values)
             .returning(CrawlItem)
         )
         return self.session.scalars(statement).one_or_none()
@@ -215,6 +231,60 @@ class CrawlRepository:
             .join(
                 IngestionItem,
                 IngestionItem.id == CrawlItem.ingestion_item_id,
+            )
+            .order_by(CrawlItem.position.asc())
+        )
+        return list(self.session.scalars(statement).all())
+
+    def list_pending_items(
+        self,
+        job_id: UUID,
+        *,
+        limit: int = 100,
+    ) -> list[CrawlItemSnapshot]:
+        if limit < 1:
+            raise ValueError("limit must be at least 1.")
+        statement = (
+            select(
+                CrawlItem.id,
+                CrawlItem.position,
+                CrawlItem.source_item_id,
+                CrawlItem.title,
+                CrawlItem.discovered_url,
+                CrawlItem.canonical_url,
+            )
+            .where(
+                CrawlItem.job_id == job_id,
+                CrawlItem.fetch_status == PENDING_FETCH_STATUS,
+            )
+            .order_by(CrawlItem.position.asc())
+            .limit(limit)
+        )
+        return [
+            CrawlItemSnapshot(
+                id=row[0],
+                position=row[1],
+                discovered_item=DiscoveredItem(
+                    source_item_id=row[2],
+                    title=row[3],
+                    discovered_url=row[4],
+                    canonical_url=row[5],
+                ),
+            )
+            for row in self.session.execute(statement).all()
+        ]
+
+    def list_pending_ingestion_ids(self, job_id: UUID) -> list[int]:
+        statement = (
+            select(IngestionItem.id)
+            .join(
+                CrawlItem,
+                CrawlItem.ingestion_item_id == IngestionItem.id,
+            )
+            .where(
+                CrawlItem.job_id == job_id,
+                CrawlItem.fetch_status == FETCHED_FETCH_STATUS,
+                IngestionItem.status == PENDING_ITEM_STATUS,
             )
             .order_by(CrawlItem.position.asc())
         )
@@ -296,6 +366,7 @@ class CrawlRepository:
         discovered_items: list[DiscoveredItem],
         *,
         continuation: dict[str, Any] | None,
+        discovery_complete: bool | None = None,
     ) -> DiscoveryCheckpoint:
         run = self.get_run_for_update(job_id)
         if run is None:
@@ -338,7 +409,14 @@ class CrawlRepository:
             frontier.status = PENDING_FRONTIER_STATUS
         frontier.error = None
         run.limit_reached = limit_reached
-        run.discovery_complete = limit_reached or continuation is None
+        run.discovery_complete = limit_reached or (
+            continuation is None
+            and (
+                discovery_complete
+                if discovery_complete is not None
+                else True
+            )
+        )
         self.session.flush()
         discovered_count = self.count_item_views(job_id)
         return DiscoveryCheckpoint(
