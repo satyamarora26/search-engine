@@ -10,10 +10,16 @@ The backend regression suite passed **584 tests**, with **47 tests skipped**
 because they require external services. The judged ranking benchmark covered
 **8 queries** and produced **1.000 BM25 MRR** and **1.000 BM25 Recall@3**.
 
+The service-backed PostgreSQL suite passed **44/44** against an isolated test
+database. A live 500-document Celery batch imported **500/500 documents with
+zero failures**, reaching **6,922-11,666 documents/minute** across three runs.
+The live FastAPI search endpoint returned p95 latencies of **5.8-8.9 ms** over
+100 requests with 2,000 matching documents.
+
 A deterministic scale benchmark indexed **20,000 synthetic documents** in
-approximately **0.291-0.306 seconds** across three runs. Each run measured 500
+approximately **0.291-0.306 seconds** across four runs. Each run measured 500
 BM25 queries after a warm-up and indexed **20,011 unique terms**. Median query
-latency was **36.5-37.0 ms** and p95 latency was **94.5-98.1 ms** across those
+latency was **35.8-37.0 ms** and p95 latency was **88.5-98.1 ms** across those
 runs. This is an in-memory benchmark on a synthetic corpus, so the result does
 not claim universal sub-100 ms HTTP latency for every production workload.
 
@@ -21,13 +27,16 @@ not claim universal sub-100 ms HTTP latency for every production workload.
 
 | Area | Command | Result |
 | --- | --- | --- |
-| Backend unit/integration tests | `python3 -m pytest -q` | **584 passed, 47 skipped** in 27.88s |
+| Backend unit/integration tests | `python3 -m pytest -q` | **584 passed, 47 skipped** in 16.10s |
 | Ranking quality | `python3 scripts/evaluate_search.py` | 8 judged queries; BM25 Recall@3 **1.000**, MRR **1.000** |
-| Scale and latency | `python3 scripts/benchmark_search.py` | 20K synthetic docs and **20,011 terms**; build **0.291-0.306s**, p50 **36.5-37.0ms**, p95 **94.5-98.1ms** across 3 runs |
+| Scale and latency | `python3 scripts/benchmark_search.py` | 20K synthetic docs and **20,011 terms**; build **0.291-0.306s**, p50 **35.8-37.0ms**, p95 **88.5-98.1ms** across 4 runs |
+| PostgreSQL/Redis service health | `docker compose ps` and `GET /api/v1/health` | PostgreSQL 16 and Redis 7 healthy; API returned HTTP 200 |
+| Live PostgreSQL integration | `DATABASE_URL=...search_engine_test RUN_POSTGRES_INTEGRATION=1 python3 -m pytest tests/integration/*postgres.py -q` | **44 passed** in 5.60s |
+| Live Celery ingestion | `python3 scripts/benchmark_live_ingestion.py` | 500/500 imported, 0 failed; **6,922-11,666 docs/min** across 3 runs |
+| Live HTTP search | `python3 scripts/benchmark_live_search.py` | 100 requests over 2,000 matching docs; p50 **4.6-4.8ms**, p95 **5.8-8.9ms** across 3 runs |
 | Frontend lint | `npm run lint` from `frontend/` | Passed |
 | Frontend tests | `npm test -- --run` from `frontend/` | Blocked by Vitest worker-start timeout in this environment; no pass count reported |
 | Frontend production build | `npm exec -- vite build` from `frontend/` | Blocked by the same local process timeout; no build-pass claim reported |
-| Docker-backed integration | `docker compose ps` | Not run: Docker daemon was unavailable |
 
 ## Changes Made During Test Hardening
 
@@ -41,7 +50,9 @@ not claim universal sub-100 ms HTTP latency for every production workload.
    fully sort every matching document when the API asks for a small page.
 5. Added `scripts/benchmark_search.py` with unique-term reporting and support
    for benchmarking a real JSON corpus later.
-6. Added a regression test proving average document length is refreshed after
+6. Added `scripts/benchmark_live_ingestion.py` and
+   `scripts/benchmark_live_search.py` for reproducible service-level metrics.
+7. Added a regression test proving average document length is refreshed after
    documents are added and removed.
 
 ## Ranking Details
@@ -65,12 +76,18 @@ These are reasonable numbers to use now, with the qualification shown:
 - **20,000 synthetic documents and 20,011 terms indexed in about 0.29-0.31
   seconds** in the
   deterministic benchmark.
-- **36-37 ms median and 94-98 ms p95 query latency** across three 500-query
+- **36-37 ms median and 89-98 ms p95 query latency** across four 500-query
   runs on the same synthetic benchmark workload.
+- **500-document asynchronous batches imported at 100% success and
+  6,922-11,666 documents/minute** through FastAPI, Celery, PostgreSQL, and
+  Redis on the local Docker stack.
+- **5.8-8.9 ms p95 HTTP search latency** over 2,000 matching documents in 100
+  requests on the local stack.
 - **8 judged queries with BM25 MRR and Recall@3 of 1.000**.
 - **3 crawler source families** implemented: Wikipedia, Medium, and RSS/Atom.
 
 Do not claim `1M+ terms`, `15x startup improvement`, or `95% extraction success`
 until those values are measured with a larger corpus, a documented workload,
-and the Docker-backed services running. The p95 result above is under 100 ms for
-the documented synthetic in-memory workload; label it that way on the CV.
+and the Docker-backed services running. The live p95 result is measured on the
+local stack and should be labeled as such on the CV, not presented as a global
+production SLO.
