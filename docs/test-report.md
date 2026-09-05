@@ -16,6 +16,13 @@ zero failures**, reaching **6,922-11,666 documents/minute** across three runs.
 The live FastAPI search endpoint returned p95 latencies of **5.8-8.9 ms** over
 100 requests with 2,000 matching documents.
 
+An ApacheBench concurrency run completed **1,500/1,500 requests with zero
+failures** at 25, 50, and 100 concurrent clients. On the local single-worker
+API, throughput was **239-265 requests/second**; p95 latency was **263-278 ms**
+at 25-50 concurrency and **555 ms** at 100 concurrency. These results expose
+the current concurrency ceiling instead of treating serial latency as a
+concurrent capacity claim.
+
 A deterministic scale benchmark indexed **20,000 synthetic documents** in
 approximately **0.291-0.306 seconds** across four runs. Each run measured 500
 BM25 queries after a warm-up and indexed **20,011 unique terms**. Median query
@@ -34,6 +41,7 @@ not claim universal sub-100 ms HTTP latency for every production workload.
 | Live PostgreSQL integration | `DATABASE_URL=...search_engine_test RUN_POSTGRES_INTEGRATION=1 python3 -m pytest tests/integration/*postgres.py -q` | **44 passed** in 5.60s |
 | Live Celery ingestion | `python3 scripts/benchmark_live_ingestion.py` | 500/500 imported, 0 failed; **6,922-11,666 docs/min** across 3 runs |
 | Live HTTP search | `python3 scripts/benchmark_live_search.py` | 100 requests over 2,000 matching docs; p50 **4.6-4.8ms**, p95 **5.8-8.9ms** across 3 runs |
+| Concurrent HTTP search | `ab -n 500 -c 25/50/100 'http://127.0.0.1:8000/api/v1/search?q=throughput&limit=10'` | **1,500/1,500 successful**; **239-265 req/s**; p95 **263-278ms** at 25-50 concurrency and **555ms** at 100 concurrency |
 | Frontend lint | `npm run lint` from `frontend/` | Passed |
 | Frontend tests | `npm test -- --run` from `frontend/` | Blocked by Vitest worker-start timeout in this environment; no pass count reported |
 | Frontend production build | `npm exec -- vite build` from `frontend/` | Blocked by the same local process timeout; no build-pass claim reported |
@@ -83,6 +91,8 @@ These are reasonable numbers to use now, with the qualification shown:
   Redis on the local Docker stack.
 - **5.8-8.9 ms p95 HTTP search latency** over 2,000 matching documents in 100
   requests on the local stack.
+- **1,500 concurrent-load requests completed with zero failures** across
+  25-100 clients; the local single-worker API sustained **239-265 req/s**.
 - **8 judged queries with BM25 MRR and Recall@3 of 1.000**.
 - **3 crawler source families** implemented: Wikipedia, Medium, and RSS/Atom.
 
