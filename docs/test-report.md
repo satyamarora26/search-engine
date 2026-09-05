@@ -30,6 +30,14 @@ latency was **35.8-37.0 ms** and p95 latency was **88.5-98.1 ms** across those
 runs. This is an in-memory benchmark on a synthetic corpus, so the result does
 not claim universal sub-100 ms HTTP latency for every production workload.
 
+A live Wikipedia crawl of **100 Featured articles** completed in approximately
+**60 seconds** at depth 0. All **100/100 pages were fetched and extracted**, all
+**100/100 were imported**, and there were **0 fetch or ingestion failures**.
+The resulting real corpus contained **23,045 unique analyzed terms** and
+rebuilt in **0.252 seconds**. Over that index, 100 live `history` searches
+covering 73 matching articles produced **2.799 ms p95 latency** with no failed
+requests.
+
 ## Checks Run
 
 | Area | Command | Result |
@@ -42,6 +50,9 @@ not claim universal sub-100 ms HTTP latency for every production workload.
 | Live Celery ingestion | `python3 scripts/benchmark_live_ingestion.py` | 500/500 imported, 0 failed; **6,922-11,666 docs/min** across 3 runs |
 | Live HTTP search | `python3 scripts/benchmark_live_search.py` | 100 requests over 2,000 matching docs; p50 **4.6-4.8ms**, p95 **5.8-8.9ms** across 3 runs |
 | Concurrent HTTP search | `ab -n 500 -c 25/50/100 'http://127.0.0.1:8000/api/v1/search?q=throughput&limit=10'` | **1,500/1,500 successful**; **239-265 req/s**; p95 **263-278ms** at 25-50 concurrency and **555ms** at 100 concurrency |
+| Live Wikipedia crawl | `POST /api/v1/crawls/wikipedia` with `Featured articles`, `max_articles=100`, `max_depth=0` | **100 discovered**, **100 fetched/extracted**, **100 imported**, **0 failures** in approximately **60s** |
+| Real-corpus index build | Isolated PostgreSQL crawl database loaded into `SearchEngine` | **23,045 unique terms** across 100 real articles; rebuild **0.252s**; average content **25,826 characters** |
+| Live real-corpus HTTP search | `DATABASE_URL=...search_engine_real_crawl_100 python3 scripts/benchmark_live_search.py --query=history --requests=100 --limit=10` | 100 requests over 73 matching articles; p50 **2.233ms**, p95 **2.799ms**, max **10.306ms** |
 | Frontend lint | `npm run lint` from `frontend/` | Passed |
 | Frontend tests | `npm test -- --run` from `frontend/` | Blocked by Vitest worker-start timeout in this environment; no pass count reported |
 | Frontend production build | `npm exec -- vite build` from `frontend/` | Blocked by the same local process timeout; no build-pass claim reported |
@@ -93,6 +104,11 @@ These are reasonable numbers to use now, with the qualification shown:
   requests on the local stack.
 - **1,500 concurrent-load requests completed with zero failures** across
   25-100 clients; the local single-worker API sustained **239-265 req/s**.
+- **100 real Wikipedia articles fetched, extracted, and imported with 100%
+  success**, producing **23,045 unique terms** in an approximately 60-second
+  crawl.
+- **2.799 ms p95 live HTTP search latency** over a real 100-article corpus and
+  73 matching documents across 100 requests.
 - **8 judged queries with BM25 MRR and Recall@3 of 1.000**.
 - **3 crawler source families** implemented: Wikipedia, Medium, and RSS/Atom.
 
@@ -100,4 +116,6 @@ Do not claim `1M+ terms`, `15x startup improvement`, or `95% extraction success`
 until those values are measured with a larger corpus, a documented workload,
 and the Docker-backed services running. The live p95 result is measured on the
 local stack and should be labeled as such on the CV, not presented as a global
-production SLO.
+production SLO. The real-corpus result is a 100-page `Featured articles`
+sample, so it should be presented as a benchmark rather than general Wikipedia
+coverage.
