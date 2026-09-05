@@ -38,6 +38,13 @@ rebuilt in **0.252 seconds**. Over that index, 100 live `history` searches
 covering 73 matching articles produced **2.799 ms p95 latency** with no failed
 requests.
 
+A repeated 10-run recovery comparison found that PostgreSQL document loading
+plus index rebuilding took **290.7-319.2 ms p50**, while Redis snapshot loading
+plus the same rebuild took **290.4-305.8 ms p50**. The median Redis advantage
+was only **1.00-1.04x** across the two trials, with a **2.62 MB** snapshot. The
+current snapshot stores source documents rather than compiled postings, so
+Redis does not yet justify a startup-speed claim.
+
 ## Checks Run
 
 | Area | Command | Result |
@@ -53,6 +60,7 @@ requests.
 | Live Wikipedia crawl | `POST /api/v1/crawls/wikipedia` with `Featured articles`, `max_articles=100`, `max_depth=0` | **100 discovered**, **100 fetched/extracted**, **100 imported**, **0 failures** in approximately **60s** |
 | Real-corpus index build | Isolated PostgreSQL crawl database loaded into `SearchEngine` | **23,045 unique terms** across 100 real articles; rebuild **0.252s**; average content **25,826 characters** |
 | Live real-corpus HTTP search | `DATABASE_URL=...search_engine_real_crawl_100 python3 scripts/benchmark_live_search.py --query=history --requests=100 --limit=10` | 100 requests over 73 matching articles; p50 **2.233ms**, p95 **2.799ms**, max **10.306ms** |
+| Redis recovery comparison | Repeated 10-run PostgreSQL and Redis snapshot load + index rebuild comparison | PostgreSQL p50 **290.7-319.2ms**; Redis p50 **290.4-305.8ms**; median ratio **1.00-1.04x**; snapshot **2.62MB** |
 | Frontend lint | `npm run lint` from `frontend/` | Passed |
 | Frontend tests | `npm test -- --run` from `frontend/` | Blocked by Vitest worker-start timeout in this environment; no pass count reported |
 | Frontend production build | `npm exec -- vite build` from `frontend/` | Blocked by the same local process timeout; no build-pass claim reported |
@@ -109,6 +117,9 @@ These are reasonable numbers to use now, with the qualification shown:
   crawl.
 - **2.799 ms p95 live HTTP search latency** over a real 100-article corpus and
   73 matching documents across 100 requests.
+- Redis recovery is currently within **1.00-1.04x** of a PostgreSQL rebuild
+  because the snapshot stores documents and still rebuilds the in-memory index;
+  this is an architecture finding, not a CV performance claim.
 - **8 judged queries with BM25 MRR and Recall@3 of 1.000**.
 - **3 crawler source families** implemented: Wikipedia, Medium, and RSS/Atom.
 
@@ -118,4 +129,6 @@ and the Docker-backed services running. The live p95 result is measured on the
 local stack and should be labeled as such on the CV, not presented as a global
 production SLO. The real-corpus result is a 100-page `Featured articles`
 sample, so it should be presented as a benchmark rather than general Wikipedia
-coverage.
+coverage. Redis currently caches source documents and still rebuilds the
+in-memory index during recovery; a material warm-start improvement would
+require a future compiled-index snapshot format.
