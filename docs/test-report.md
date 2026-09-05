@@ -8,7 +8,7 @@ software CV.
 
 The backend regression suite passed **584 tests**, with **47 tests skipped**
 because they require external services. The judged ranking benchmark covered
-**8 queries** and produced **1.000 BM25 MRR** and **1.000 BM25 Recall@3**.
+**50 queries** and produced **0.990 BM25 MRR** and **1.000 BM25 Recall@3**.
 
 The service-backed PostgreSQL suite passed **44/44** against an isolated test
 database. A live 500-document Celery batch imported **500/500 documents with
@@ -50,7 +50,7 @@ Redis does not yet justify a startup-speed claim.
 | Area | Command | Result |
 | --- | --- | --- |
 | Backend unit/integration tests | `python3 -m pytest -q` | **584 passed, 47 skipped** in 16.10s |
-| Ranking quality | `python3 scripts/evaluate_search.py` | 8 judged queries; BM25 Recall@3 **1.000**, MRR **1.000** |
+| Ranking quality | `python3 scripts/evaluate_search.py` | 50 judged queries over the six-document sample corpus; BM25 Recall@3 **1.000**, MRR **0.990**; TF-IDF Recall@3 **1.000**, MRR **0.970** |
 | Scale and latency | `python3 scripts/benchmark_search.py` | 20K synthetic docs and **20,011 terms**; build **0.291-0.306s**, p50 **35.8-37.0ms**, p95 **88.5-98.1ms** across 4 runs |
 | PostgreSQL/Redis service health | `docker compose ps` and `GET /api/v1/health` | PostgreSQL 16 and Redis 7 healthy; API returned HTTP 200 |
 | Live PostgreSQL integration | `DATABASE_URL=...search_engine_test RUN_POSTGRES_INTEGRATION=1 python3 -m pytest tests/integration/*postgres.py -q` | **44 passed** in 5.60s |
@@ -84,13 +84,13 @@ Redis does not yet justify a startup-speed claim.
 
 ## Ranking Details
 
-The benchmark corpus contains six documents and eight manually judged queries.
+The benchmark corpus contains six documents and 50 manually judged queries.
 The current output is:
 
 | Ranking | Precision@3 | Recall@3 | MRR |
 | --- | ---: | ---: | ---: |
-| BM25 | 0.417 | 1.000 | 1.000 |
-| TF-IDF | 0.417 | 1.000 | 0.938 |
+| BM25 | 0.347 | 1.000 | 0.990 |
+| TF-IDF | 0.347 | 1.000 | 0.970 |
 
 This is a regression benchmark, not a claim of search quality on the whole web.
 The next quality milestone should use a larger, domain-specific judged set.
@@ -120,7 +120,8 @@ These are reasonable numbers to use now, with the qualification shown:
 - Redis recovery is currently within **1.00-1.04x** of a PostgreSQL rebuild
   because the snapshot stores documents and still rebuilds the in-memory index;
   this is an architecture finding, not a CV performance claim.
-- **8 judged queries with BM25 MRR and Recall@3 of 1.000**.
+- **50 judged queries over the sample corpus with BM25 Recall@3 of 1.000
+  and MRR of 0.990**, versus TF-IDF MRR of 0.970.
 - **3 crawler source families** implemented: Wikipedia, Medium, and RSS/Atom.
 
 Do not claim `1M+ terms`, `15x startup improvement`, or `95% extraction success`

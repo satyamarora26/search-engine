@@ -32,6 +32,174 @@
     {
       "query": "document indexing",
       "relevant_document_ids": [3, 5]
+    },
+    {
+      "query": "term frequency saturation",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "document length normalization",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "practical search ranking",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "bm25 default algorithm",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "strong default ranking",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "ranking simple search",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "strong default ranking algorithm",
+      "relevant_document_ids": [1]
+    },
+    {
+      "query": "tf idf basics",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "inverse document frequency",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "term frequency inside document",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "tfidf ranking style",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "tfidf search demo",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "frequency across full corpus",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "document frequency scoring",
+      "relevant_document_ids": [2]
+    },
+    {
+      "query": "analyzed term mapping",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "documents containing term",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "avoid scanning documents",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "every search query",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "inverted term lookup",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "term document mapping",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "query document scanning",
+      "relevant_document_ids": [3]
+    },
+    {
+      "query": "source document storage",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "job metadata records",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "index version records",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "in memory index",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "source of truth",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "postgres document urls",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "rebuild in memory",
+      "relevant_document_ids": [4]
+    },
+    {
+      "query": "fetch article titles",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "page content pipeline",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "wikipedia page urls",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "crawler indexing pipeline",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "article content indexing",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "crawler fetch documents",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "wikipedia indexing pipeline",
+      "relevant_document_ids": [5]
+    },
+    {
+      "query": "repeated search responses",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "cache key version",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "old results corpus changes",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "redis repeated queries",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "index version cache",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "prevent stale results",
+      "relevant_document_ids": [6]
+    },
+    {
+      "query": "search response caching",
+      "relevant_document_ids": [6]
     }
   ]
 }

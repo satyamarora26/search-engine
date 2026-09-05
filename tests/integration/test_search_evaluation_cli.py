@@ -41,8 +41,8 @@ def test_sample_benchmark_shows_bm25_ahead_at_k_two():
         if row.startswith(("BM25", "TF-IDF"))
     }
 
-    assert ranking_rows["BM25"] == ["0.562", "0.938", "1.000"]
-    assert ranking_rows["TF-IDF"] == ["0.500", "0.875", "0.938"]
+    assert ranking_rows["BM25"] == ["0.510", "0.990", "0.990"]
+    assert ranking_rows["TF-IDF"] == ["0.500", "0.980", "0.970"]
 
 
 def test_evaluation_cli_rejects_non_positive_k():

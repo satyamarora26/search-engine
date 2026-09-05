@@ -1,10 +1,10 @@
 # Search Evaluation
 
-The search engine includes a small, judged benchmark in
-`data/search_evaluation.json`. Each benchmark query contains the document IDs
-that a human considers relevant. The judgments are deliberately separate from
-the ranking implementation so BM25 and TF-IDF are measured against the same
-expectations.
+The search engine includes a 50-query, manually judged benchmark in
+`data/search_evaluation.json`. It uses the six-document teaching corpus. Each
+query contains the document IDs that a human considers relevant. The judgments
+are deliberately separate from the ranking implementation so BM25 and TF-IDF
+are measured against the same expectations.
 
 Run the comparison with:
 
@@ -29,7 +29,8 @@ python scripts/evaluate_search.py --k 2 --details
   position 1 contributes `1.0`, position 2 contributes `0.5`, and a query with
   no relevant result contributes `0.0`.
 
-The benchmark is intentionally small while the project is being learned. Once
-Wikipedia crawling provides a larger corpus, we should expand the judgment
-file with representative queries and more relevant-document labels before
-tuning the analyzer or ranking parameters.
+The 50-query set is a stronger regression check than the original 8-query set,
+but it is still a small sample-corpus benchmark. It should not be presented as
+production search quality. The next quality milestone is a larger judgment set
+over a stable real-article corpus, with representative queries and multiple
+relevant-document labels before tuning the analyzer or ranking parameters.
