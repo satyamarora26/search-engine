@@ -72,12 +72,26 @@ class SearchEngine:
         if not query_terms:
             return SearchPage(hits=[], total_results=0)
 
-        candidate_ids = self.index.filter_document_ids(
-            source=normalize_source(source),
-            created_from=created_from,
-            created_to=created_to,
+        normalized_source = normalize_source(source)
+        has_filters = (
+            normalized_source is not None
+            or created_from is not None
+            or created_to is not None
         )
-        ranked_limit = len(candidate_ids)
+        candidate_ids = (
+            self.index.filter_document_ids(
+                source=normalized_source,
+                created_from=created_from,
+                created_to=created_to,
+            )
+            if has_filters
+            else None
+        )
+        ranked_limit = (
+            len(candidate_ids)
+            if candidate_ids is not None
+            else self.index.document_count(scope=scope)
+        )
 
         if ranking == "bm25":
             ranked_hits = self.bm25_ranker.score(

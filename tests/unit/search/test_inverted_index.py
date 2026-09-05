@@ -118,6 +118,18 @@ def test_average_document_length_is_computed():
     assert index.average_document_length() == 7.0
 
 
+def test_average_document_length_updates_after_index_mutation():
+    index = build_index()
+
+    index.add_document(IndexedDocument(id=3, title="", content="python"))
+
+    assert index.average_document_length() == 5.0
+
+    index.remove_document(3)
+
+    assert index.average_document_length() == 7.0
+
+
 def test_removing_document_removes_its_postings():
     index = build_index()
 

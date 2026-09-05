@@ -37,25 +37,42 @@ class Bm25Ranker:
         ):
             return []
 
+        document_count = index.document_count(scope=scope)
+        average_document_length = index.average_document_length(scope=scope)
+        if average_document_length == 0:
+            return []
+        document_lengths = index.get_document_lengths(scope=scope)
+
         scores: dict[int, float] = defaultdict(float)
         matched_terms: dict[int, set[str]] = defaultdict(set)
 
         for term in query_terms:
-            for posting in index.get_postings(
+            document_frequency = index.document_frequency(term, scope=scope)
+            if document_frequency == 0:
+                continue
+            idf = math.log(
+                1
+                + (
+                    (document_count - document_frequency + 0.5)
+                    / (document_frequency + 0.5)
+                )
+            )
+
+            for posting in index.iter_postings(
                 term,
                 scope=scope,
                 document_ids=document_ids,
             ):
-                term_score = self._score_term(
-                    term,
-                    posting.document_id,
-                    index,
-                    scope=scope,
+                document_length = document_lengths[posting.document_id]
+                numerator = posting.term_frequency * (self.k1 + 1)
+                denominator = posting.term_frequency + self.k1 * (
+                    1
+                    - self.b
+                    + self.b * document_length / average_document_length
                 )
-                if term_score.contribution <= 0:
-                    continue
+                contribution = idf * numerator / denominator
 
-                scores[posting.document_id] += term_score.contribution
+                scores[posting.document_id] += contribution
                 matched_terms[posting.document_id].add(term)
 
         hits = [
