@@ -2,6 +2,7 @@ import math
 from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass
+from heapq import nlargest
 
 from app.search.inverted_index import InvertedIndex
 from app.search.types import SearchHit, SearchScope
@@ -83,8 +84,9 @@ class Bm25Ranker:
             )
             for document_id, score in scores.items()
         ]
-        ranked_hits = sorted(hits, key=lambda hit: (-hit.score, hit.document_id))
-        return ranked_hits if limit is None else ranked_hits[:limit]
+        if limit is None:
+            return sorted(hits, key=lambda hit: (-hit.score, hit.document_id))
+        return nlargest(limit, hits, key=lambda hit: (hit.score, -hit.document_id))
 
     def explain(
         self,

@@ -102,6 +102,22 @@ class InvertedIndex:
                 continue
             yield Posting(document_id=document_id, term_frequency=frequency)
 
+    def matching_document_ids(
+        self,
+        terms: Sequence[str],
+        scope: SearchScope = "all",
+        document_ids: Collection[int] | None = None,
+    ) -> set[int]:
+        postings_by_term = self._term_document_frequencies[
+            _validate_scope(scope)
+        ]
+        matching_ids: set[int] = set()
+        for term in terms:
+            matching_ids.update(postings_by_term.get(term, {}))
+        if document_ids is not None:
+            matching_ids.intersection_update(document_ids)
+        return matching_ids
+
     def filter_document_ids(
         self,
         source: str | None = None,

@@ -11,11 +11,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.search.corpus import load_documents_from_json
 from app.search.engine import SearchEngine
 from app.search.types import IndexedDocument
 
 DEFAULT_DOCUMENTS = 20_000
-DEFAULT_QUERIES = 100
+DEFAULT_QUERIES = 500
 BENCHMARK_QUERIES = (
     "distributed systems",
     "BM25 ranking",
@@ -39,7 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--documents",
         type=parse_positive_int,
         default=DEFAULT_DOCUMENTS,
-        help="Number of synthetic documents to index.",
+        help="Number of synthetic documents to index when --corpus is omitted.",
+    )
+    parser.add_argument(
+        "--corpus",
+        type=Path,
+        help="Optional JSON corpus; when provided, benchmark its documents.",
     )
     parser.add_argument(
         "--queries",
@@ -64,6 +70,15 @@ def build_documents(count: int) -> list[IndexedDocument]:
     ]
 
 
+def load_benchmark_documents(
+    corpus_path: Path | None,
+    document_count: int,
+) -> list[IndexedDocument]:
+    if corpus_path is not None:
+        return load_documents_from_json(corpus_path)
+    return build_documents(document_count)
+
+
 def percentile(values: list[float], percentile_value: float) -> float:
     rank = max(1, math.ceil(len(values) * percentile_value))
     return sorted(values)[rank - 1]
@@ -71,7 +86,7 @@ def percentile(values: list[float], percentile_value: float) -> float:
 
 def main() -> int:
     args = build_parser().parse_args()
-    documents = build_documents(args.documents)
+    documents = load_benchmark_documents(args.corpus, args.documents)
 
     start = time.perf_counter()
     engine = SearchEngine()
@@ -90,7 +105,8 @@ def main() -> int:
         latencies.append((time.perf_counter() - start) * 1000)
 
     print("Search performance benchmark")
-    print(f"Documents: {args.documents}")
+    print(f"Documents: {len(documents)}")
+    print(f"Unique terms: {engine.index.unique_term_count()}")
     print(f"Timed queries: {args.queries}")
     print(f"Index build: {build_seconds:.3f}s")
     print(f"Query p50: {statistics.median(latencies):.3f}ms")

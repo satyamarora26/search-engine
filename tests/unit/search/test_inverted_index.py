@@ -79,6 +79,13 @@ def test_term_postings_can_be_limited_to_candidate_document_ids():
     assert postings == [Posting(document_id=2, term_frequency=3)]
 
 
+def test_matching_document_ids_union_terms_and_apply_candidates():
+    index = build_index()
+
+    assert index.matching_document_ids(["python", "java"]) == {1, 2}
+    assert index.matching_document_ids(["python", "java"], document_ids={2}) == {2}
+
+
 def test_term_frequency_is_counted_per_document():
     index = build_index()
 

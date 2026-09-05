@@ -71,6 +71,8 @@ class SearchEngine:
         query_terms = self.analyzer.analyze(query)
         if not query_terms:
             return SearchPage(hits=[], total_results=0)
+        if limit <= 0:
+            return SearchPage(hits=[], total_results=0)
 
         normalized_source = normalize_source(source)
         has_filters = (
@@ -87,11 +89,25 @@ class SearchEngine:
             if has_filters
             else None
         )
-        ranked_limit = (
-            len(candidate_ids)
-            if candidate_ids is not None
-            else self.index.document_count(scope=scope)
+        matching_ids = self.index.matching_document_ids(
+            query_terms,
+            scope=scope,
+            document_ids=candidate_ids,
         )
+        if exact_phrase:
+            matching_ids = {
+                document_id
+                for document_id in matching_ids
+                if self.index.contains_phrase(
+                    document_id,
+                    query_terms,
+                    scope=scope,
+                )
+            }
+        if not matching_ids:
+            return SearchPage(hits=[], total_results=0)
+
+        ranked_limit = offset + limit
 
         if ranking == "bm25":
             ranked_hits = self.bm25_ranker.score(
@@ -99,7 +115,7 @@ class SearchEngine:
                 self.index,
                 limit=ranked_limit,
                 scope=scope,
-                document_ids=candidate_ids,
+                document_ids=matching_ids,
             )
         elif ranking == "tfidf":
             ranked_hits = self.tfidf_ranker.score(
@@ -107,27 +123,16 @@ class SearchEngine:
                 self.index,
                 limit=ranked_limit,
                 scope=scope,
-                document_ids=candidate_ids,
+                document_ids=matching_ids,
             )
         else:
             raise ValueError(
                 f"Unsupported ranking '{ranking}'. Expected 'bm25' or 'tfidf'."
             )
 
-        if exact_phrase:
-            ranked_hits = [
-                hit
-                for hit in ranked_hits
-                if self.index.contains_phrase(
-                    hit.document_id,
-                    query_terms,
-                    scope=scope,
-                )
-            ]
-
         return SearchPage(
             hits=ranked_hits[offset : offset + limit],
-            total_results=len(ranked_hits),
+            total_results=len(matching_ids),
         )
 
     def explain(
